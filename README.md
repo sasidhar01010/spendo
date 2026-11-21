@@ -62,7 +62,7 @@ On GitHub, open **Settings → Developer settings → OAuth Apps → New OAuth A
 - Homepage URL: `https://sasidhar01010.github.io/spendo/`
 - Callback URL: `https://<your-project-ref>.supabase.co/auth/v1/callback`
 
-Then paste the Client ID and a new Client secret into **Supabase → Authentication → Providers → GitHub**.
+Then paste the Client ID and a new Client secret into **Supabase → Authentication → Providers → GitHub**, and set `githubLogin: true` in `app/config.js` to show the button.
 
 ## Run locally
 
