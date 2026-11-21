@@ -1,8 +1,8 @@
-# Paisa Pulse
+# Spendo
 
 Track every rupee you spend, on your phone and laptop. Sign in with Google and your entries are stored privately in your own Supabase database and kept in sync across devices. It runs entirely on free tiers.
 
-**Live app:** https://sasidhar01010.github.io/paisa-pulse/
+**Live app:** https://sasidhar01010.github.io/spendo/
 
 ## What it does today (Phase 1)
 
@@ -37,10 +37,10 @@ You need four free accounts: GitHub, Supabase, Google Cloud, and optionally a Gi
 4. Put both into [`app/config.js`](app/config.js) and commit. The anon key is safe to make public. **Never** commit the `service_role` or secret key.
 
 ### 2. Google sign-in
-1. Go to https://console.cloud.google.com and create a project called `Paisa Pulse`.
+1. Go to https://console.cloud.google.com and create a project called `Spendo`.
 2. Open **APIs & Services → OAuth consent screen** (called "Google Auth Platform" on newer consoles):
    - User type: **External**
-   - App name: `Paisa Pulse`; support email and developer email: your Gmail
+   - App name: `Spendo`; support email and developer email: your Gmail
    - Scopes: leave the defaults (`email`, `profile`, `openid`). These basic scopes need no Google review.
    - Then **Publish app** (set it to "In production") so anyone can sign in, not only test users.
 3. Open **Credentials → Create credentials → OAuth client ID → Web application**:
@@ -51,15 +51,15 @@ You need four free accounts: GitHub, Supabase, Google Cloud, and optionally a Gi
 
 ### 3. Tell Supabase where the app lives
 In Supabase, open **Authentication → URL Configuration**:
-- Site URL: `https://sasidhar01010.github.io/paisa-pulse/`
-- Redirect URLs: add `https://sasidhar01010.github.io/paisa-pulse/` and `http://localhost:8080/`
+- Site URL: `https://sasidhar01010.github.io/spendo/`
+- Redirect URLs: add `https://sasidhar01010.github.io/spendo/` and `http://localhost:8080/`
 
 ### 4. GitHub Pages
 In this repo, open **Settings → Pages → Build and deployment → Source: GitHub Actions**. Every push to `main` then deploys automatically.
 
 ### 5. (Optional) GitHub sign-in
 On GitHub, open **Settings → Developer settings → OAuth Apps → New OAuth App**:
-- Homepage URL: `https://sasidhar01010.github.io/paisa-pulse/`
+- Homepage URL: `https://sasidhar01010.github.io/spendo/`
 - Callback URL: `https://<your-project-ref>.supabase.co/auth/v1/callback`
 
 Then paste the Client ID and a new Client secret into **Supabase → Authentication → Providers → GitHub**.

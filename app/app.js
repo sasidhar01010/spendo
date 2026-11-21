@@ -43,8 +43,8 @@ const CURS=['INR','USD','EUR','GBP','AED','SGD','CAD','AUD'];
 const DEF_CATS=[['food','Food','food','#e4572e','out'],['transport','Transport','transport','#2f6fde','out'],['rent','Rent','rent','#7a4fd6','out'],['bills','Bills','bills','#d99a00','out'],['shopping','Shopping','shopping','#d23f8f','out'],['health','Health','health','#14a37f','out'],['fun','Fun','fun','#0a9bc0','out'],['other','Other','other','#8a8178','out'],['salary','Salary','salary','#1a7f4e','in'],['refund','Refund','refund','#3a9d9a','in'],['gift','Gift','gift','#c8371e','in']].map(([id,name,icon,color,kind])=>({id,name,icon,color,kind}));
 
 /* ---------- state, sign-in & sync (Supabase) ---------- */
-const CFG=window.PAISA_CONFIG||{};
-const LS_KEY='paisa-pulse-v2',LS_BASE='paisa-pulse-base-v2',LS_GUEST='paisa-pulse-guest';
+const CFG=window.SPENDO_CONFIG||{};
+const LS_KEY='spendo-v2',LS_BASE='spendo-base-v2',LS_GUEST='spendo-guest';
 const blankMeta=()=>({v:1,currency:'INR',name:'',budget:0,budgets:{},accounts:[{id:'cash',name:'Cash',type:'cash',opening:0}],categories:DEF_CATS.map(c=>({...c})),lastAcc:'cash',onboarded:false});
 function fixMeta(m){const b=blankMeta();m={...b,...(m||{})};if(!Array.isArray(m.accounts)||!m.accounts.length)m.accounts=b.accounts;if(!Array.isArray(m.categories)||!m.categories.length)m.categories=b.categories;if(!m.budgets||typeof m.budgets!=='object')m.budgets={};return m}
 function loadLocal(){try{const j=JSON.parse(localStorage.getItem(LS_KEY));if(j&&j.meta&&j.months)return{meta:fixMeta(j.meta),months:j.months}}catch(e){}return null}
@@ -305,7 +305,7 @@ function renderMore(){
     <label class="f">Your name<input class="inp" id="nm" value="${esc(S.meta.name)}" placeholder="Optional" autocomplete="given-name"></label>
     <label class="f">Currency<select id="cur">${CURS.map(c=>`<option ${c===S.meta.currency?'selected':''}>${c}</option>`).join('')}</select></label>
     ${uid?`<p class="note">Signed in as <b>${esc(session?.user?.email||'you')}</b>. Your entries are private to you and sync to every device where you sign in.</p><div class="btns"><button class="btn" data-act="signout">Sign out</button></div>`
-      :sb?`<p class="note">You're using Paisa Pulse on this device only. Sign in to back up your entries and use them on your phone and laptop. Entries already here come with you.</p><div class="btns"><button class="btn dark" data-act="google">Continue with Google</button><button class="btn" data-act="github">Continue with GitHub</button></div>`
+      :sb?`<p class="note">You're using Spendo on this device only. Sign in to back up your entries and use them on your phone and laptop. Entries already here come with you.</p><div class="btns"><button class="btn dark" data-act="google">Continue with Google</button><button class="btn" data-act="github">Continue with GitHub</button></div>`
       :`<p class="note">Sync isn't set up yet, so entries are saved in this browser only. Add your Supabase keys to <code>app/config.js</code> to turn on sign-in.</p>`}</section>
   <section class="card s7 sect"><h2>Use it on your phone and laptop</h2>
     <ol class="steps"><li>Open <b>${esc(location.host+location.pathname)}</b> on your phone and sign in with the same Google account.</li><li>On iPhone, tap Share then <b>Add to Home Screen</b>. On Android Chrome, tap ⋮ then <b>Install app</b>. It opens full screen and works offline.</li><li>On your laptop, Chrome and Edge show an install icon in the address bar.</li></ol>
@@ -390,7 +390,7 @@ $('#snackb').addEventListener('click',()=>{if(snU){const f=snU;snU=null;f()}$('#
 /* ---------- welcome ---------- */
 function showWelcome(){
   $('#wsheet').innerHTML=`<div class="logo" style="width:48px;height:48px;border-radius:14px">${'<svg class="i" width="26" height="26" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>'}</div>
-  <div class="wtitle">Every rupee, in three taps.</div><p class="sub">Paisa Pulse tracks what you spend each day and shows whether you're on track for the month.</p>
+  <div class="wtitle">Every rupee, in three taps.</div><p class="sub">Spendo tracks what you spend each day and shows whether you're on track for the month.</p>
   <div class="wform"><label class="f">What should we call you?<input class="inp" id="wn" placeholder="Optional" autocomplete="given-name"></label>
   <div class="two"><label class="f">Currency<select id="wc">${CURS.map(c=>`<option>${c}</option>`).join('')}</select></label><label class="f">Monthly budget<div class="money"><span>₹</span><input class="inp" id="wb" inputmode="decimal" placeholder="Optional"></div></label></div></div>
   <div class="btns"><button class="btn pri" style="flex:1" data-act="wstart">Start tracking</button><button class="btn" style="flex:1" data-act="wsample">Explore with sample data</button></div>
@@ -463,7 +463,7 @@ function importCSV(text){const rows=parseCSV(text);if(rows.length<2){snack('That
     (S.months[d.slice(0,7)]=S.months[d.slice(0,7)]||[]).push(t);keys.add('m-'+d.slice(0,7));n++}
   S.meta.onboarded=true;touch(...keys);render();snack(`Imported ${n} entr${n===1?'y':'ies'}${skip?`, skipped ${skip}`:''}`)}
 function importJSON(text){let j;try{j=JSON.parse(text)}catch(e){snack('That backup file could not be read','warn');return}
-  if(!j||!j.meta||!j.months){snack('That is not a Paisa Pulse backup','warn');return}
+  if(!j||!j.meta||!j.months){snack('That is not a Spendo backup','warn');return}
   const prev=JSON.parse(JSON.stringify(S));const restore=(st)=>{const old=Object.keys(S.months);S={meta:fixMeta(st.meta),months:st.months};S.meta.onboarded=true;nfc={};
     const keys=new Set(['meta',...Object.keys(S.months).map(m=>'m-'+m)]);for(const m of old)if(!S.months[m]){S.months[m]=[];keys.add('m-'+m)}touch(...keys);render()};
   restore(j);snack('Backup restored','',()=>restore(prev))}
@@ -515,8 +515,8 @@ document.addEventListener('click',e=>{
     case 'delAcc':if(allTx().some(x=>x.acc===id||x.to===id)){snack('This account has entries. Delete or move them first.','warn');break}S.meta.accounts=accs().filter(a=>a.id!==id);if(S.meta.lastAcc===id)S.meta.lastAcc=accs()[0].id;touch('meta');render();break;
     case 'addCat':S.meta.categories.push({id:newId(),name:A.dataset.kind==='in'?'New income':'New category',icon:'other',color:'#5b6cff',kind:A.dataset.kind});touch('meta');render();break;
     case 'delCat':if(allTx().some(x=>x.c===id)){snack('This category has entries, so it stays.','warn');break}S.meta.categories=S.meta.categories.filter(c=>c.id!==id);delete S.meta.budgets[id];touch('meta');render();break;
-    case 'csv':offer(`paisa-pulse-${todayISO()}.csv`,toCSV(),'text/csv');break;
-    case 'json':offer(`paisa-pulse-backup-${todayISO()}.json`,JSON.stringify(S,null,1),'application/json');break;
+    case 'csv':offer(`spendo-${todayISO()}.csv`,toCSV(),'text/csv');break;
+    case 'json':offer(`spendo-backup-${todayISO()}.json`,JSON.stringify(S,null,1),'application/json');break;
     case 'import':$('#file').click();break;
     case 'sample':addSample();render();break;
     case 'unsample':removeSample();break;

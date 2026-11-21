@@ -1,6 +1,6 @@
-// Paisa Pulse service worker: makes the app open offline.
+// Spendo service worker: makes the app open offline.
 // The deploy workflow replaces __BUILD__ so each release refreshes the cache.
-const CACHE = 'paisa-__BUILD__';
+const CACHE = 'spendo-__BUILD__';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './config.js', './manifest.webmanifest', './icon.svg'];
 const CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
 

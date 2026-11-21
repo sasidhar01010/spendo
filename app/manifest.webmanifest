@@ -1,6 +1,6 @@
 {
-  "name": "Paisa Pulse",
-  "short_name": "Paisa Pulse",
+  "name": "Spendo",
+  "short_name": "Spendo",
   "description": "Track every rupee you spend, on your phone and laptop.",
   "start_url": "./",
   "scope": "./",

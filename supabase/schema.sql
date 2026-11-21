@@ -1,4 +1,4 @@
--- Paisa Pulse database schema
+-- Spendo database schema
 -- Run once: Supabase dashboard → SQL Editor → New query → paste this file → Run.
 -- Safe to run again; it only creates what is missing.
 -- Money is stored as integer minor units (paise), never as decimals.
