@@ -1,0 +1,17 @@
+{
+  "name": "Paisa Pulse",
+  "short_name": "Paisa Pulse",
+  "description": "Track every rupee you spend, on your phone and laptop.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#161412",
+  "theme_color": "#161412",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Add expense", "url": "./#home" }
+  ]
+}

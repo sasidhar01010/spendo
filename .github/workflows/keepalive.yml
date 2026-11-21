@@ -1,0 +1,24 @@
+name: Keep Supabase awake
+
+# Free Supabase projects pause after 7 days without activity.
+# This reads one public row every night so the database stays on.
+on:
+  schedule:
+    - cron: '17 21 * * *' # 02:47 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ping database
+        run: |
+          URL=$(grep -oE "supabaseUrl: *'[^']+'" app/config.js | sed -E "s/.*'(.*)'/\1/")
+          KEY=$(grep -oE "supabaseAnonKey: *'[^']+'" app/config.js | sed -E "s/.*'(.*)'/\1/")
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "config.js not filled in yet; skipping."; exit 0; fi
+          curl -sf "$URL/rest/v1/heartbeat?select=id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          echo; echo "Database pinged."

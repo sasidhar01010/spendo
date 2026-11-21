@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#161412">
+<meta name="description" content="Track every rupee you spend, on your phone and laptop.">
+<title>Paisa Pulse</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="Main">
+    <div class="brand"><span class="logo"><svg class="i" width="20" height="20" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span>Paisa Pulse</div>
+    <a class="nav" href="#home" data-v="home"><svg class="i" width="20" height="20" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg>Home</a>
+    <a class="nav" href="#timeline" data-v="timeline"><svg class="i" width="20" height="20" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Timeline</a>
+    <a class="nav" href="#budgets" data-v="budgets"><svg class="i" width="20" height="20" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M12 12l8-8M16 4h4v4"/></svg>Budgets</a>
+    <a class="nav" href="#more" data-v="more"><svg class="i" width="20" height="20" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>More</a>
+    <button class="btn pri addbig" data-act="add"><svg class="i" width="20" height="20" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add expense</button>
+    <div class="sync" id="sync1"><span class="dot"></span><span>Starting…</span></div>
+  </aside>
+  <div>
+    <div class="top"><div class="brand"><span class="logo"><svg class="i" width="18" height="18" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span>Paisa Pulse</div><div class="sync" id="sync2"><span class="dot"></span><span>Starting…</span></div></div>
+    <main id="view" aria-live="polite"></main>
+  </div>
+</div>
+<nav class="tabs" aria-label="Tabs">
+  <a href="#home" data-v="home"><svg class="i" width="22" height="22" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg>Home</a>
+  <a href="#timeline" data-v="timeline"><svg class="i" width="22" height="22" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Timeline</a>
+  <a href="#budgets" data-v="budgets"><svg class="i" width="22" height="22" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M12 12l8-8M16 4h4v4"/></svg>Budgets</a>
+  <a href="#more" data-v="more"><svg class="i" width="22" height="22" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>More</a>
+</nav>
+<button class="fab" data-act="add" aria-label="Add expense"><svg class="i" width="30" height="30" viewBox="0 0 24 24" style="stroke-width:2.4"><path d="M12 5v14M5 12h14"/></svg></button>
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-label="Add entry"><div class="sheet" id="sheet"></div></div>
+<div class="ov welcome" id="wov" role="dialog" aria-modal="true" aria-label="Welcome"><div class="sheet" id="wsheet"></div></div>
+<div class="snack" id="snack" role="status"><span id="snackt"></span><button id="snackb" hidden>Undo</button></div>
+<input type="file" id="file" accept=".csv,.json,text/csv,application/json" hidden>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
