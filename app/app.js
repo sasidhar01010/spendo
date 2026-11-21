@@ -305,7 +305,7 @@ function renderMore(){
     <label class="f">Your name<input class="inp" id="nm" value="${esc(S.meta.name)}" placeholder="Optional" autocomplete="given-name"></label>
     <label class="f">Currency<select id="cur">${CURS.map(c=>`<option ${c===S.meta.currency?'selected':''}>${c}</option>`).join('')}</select></label>
     ${uid?`<p class="note">Signed in as <b>${esc(session?.user?.email||'you')}</b>. Your entries are private to you and sync to every device where you sign in.</p><div class="btns"><button class="btn" data-act="signout">Sign out</button></div>`
-      :sb?`<p class="note">You're using Spendo on this device only. Sign in to back up your entries and use them on your phone and laptop. Entries already here come with you.</p><div class="btns"><button class="btn dark" data-act="google">Continue with Google</button><button class="btn" data-act="github">Continue with GitHub</button></div>`
+      :sb?`<p class="note">You're using Spendo on this device only. Sign in to back up your entries and use them on your phone and laptop. Entries already here come with you.</p><div class="btns"><button class="btn dark" data-act="google">Continue with Google</button>${CFG.githubLogin?'<button class="btn" data-act="github">Continue with GitHub</button>':''}</div>`
       :`<p class="note">Sync isn't set up yet, so entries are saved in this browser only. Add your Supabase keys to <code>app/config.js</code> to turn on sign-in.</p>`}</section>
   <section class="card s7 sect"><h2>Use it on your phone and laptop</h2>
     <ol class="steps"><li>Open <b>${esc(location.host+location.pathname)}</b> on your phone and sign in with the same Google account.</li><li>On iPhone, tap Share then <b>Add to Home Screen</b>. On Android Chrome, tap ⋮ then <b>Install app</b>. It opens full screen and works offline.</li><li>On your laptop, Chrome and Edge show an install icon in the address bar.</li></ol>
@@ -404,7 +404,7 @@ function finishWelcome(sample){S.meta.name=$('#wn').value.trim().slice(0,40);S.m
 function showSignin(){
   $('#wsheet').innerHTML=`<div class="logo" style="width:48px;height:48px;border-radius:14px"><svg class="i" width="26" height="26" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></div>
   <div class="wtitle">Every rupee, in three taps.</div><p class="sub">Sign in so your entries are backed up and stay in sync between your phone and laptop. Nobody else can see them.</p>
-  <div class="wform"><button class="btn dark block" data-act="google" style="min-height:52px">Continue with Google</button><button class="btn block" data-act="github" style="min-height:52px">Continue with GitHub</button></div>
+  <div class="wform"><button class="btn dark block" data-act="google" style="min-height:52px">Continue with Google</button>${CFG.githubLogin?'<button class="btn block" data-act="github" style="min-height:52px">Continue with GitHub</button>':''}</div>
   <button class="lnk" data-act="guest" style="display:block;margin:0 auto">Use on this device only</button>
   <p class="note" style="margin-top:14px;text-align:center">No bank passwords, ever. You can sign in later from More.</p>`;
   $('#wov').classList.add('show')}

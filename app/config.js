@@ -4,6 +4,8 @@
 // supabase/schema.sql is what keeps each user's data private.
 // NEVER put the service_role / secret key here.
 window.SPENDO_CONFIG = {
-  supabaseUrl: '',      // e.g. 'https://abcdefghijkl.supabase.co'
-  supabaseAnonKey: ''   // the long "anon" / "publishable" key
+  supabaseUrl: 'https://iifclfdohqszyjydplww.supabase.co',
+  supabaseAnonKey: 'sb_publishable__CF43SZ_EoJD6DobsiNOGg_qV2FPPvq',
+  // Set to true after turning on GitHub under Supabase → Authentication → Providers.
+  githubLogin: false
 };
