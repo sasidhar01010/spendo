@@ -188,7 +188,7 @@ label.f{display:grid;gap:6px;font-size:14px;font-weight:600}
 .pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
 .pad button{min-height:52px;border:0;border-radius:14px;background:var(--soft);font-size:22px;font-weight:600}
 .pad button:active{background:var(--line)}
-.sact{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}
+.sact{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;position:sticky;bottom:calc(-18px - env(safe-area-inset-bottom));background:var(--panel);padding:10px 0 calc(4px + env(safe-area-inset-bottom));margin-bottom:calc(-18px - env(safe-area-inset-bottom));z-index:2}
 .sact .btn.pri{min-height:54px;font-size:17px}
 .snack{position:fixed;left:50%;bottom:100px;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 10px 10px 16px;display:flex;align-items:center;gap:14px;z-index:60;opacity:0;pointer-events:none;transition:.25s;max-width:calc(100vw - 32px);font-size:15px}
 .snack.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
@@ -230,4 +230,6 @@ label.f{display:grid;gap:6px;font-size:14px;font-weight:600}
 .donut{grid-template-columns:minmax(0,1fr)}.donut svg{justify-self:center}.hm button small{display:none}.hm button{padding:3px 5px}
 .brow{grid-template-columns:42px minmax(0,1fr)}.brow .money{grid-column:1/-1}
 .row{grid-template-columns:42px minmax(0,1fr) auto}.row>select,.row>.money,.row>.bal{grid-column:2/-1}.row>.bal{display:flex;justify-content:space-between;align-items:center;text-align:left}.crow{grid-template-columns:42px minmax(0,1fr) 54px}.crow>input[type=color]{grid-column:3;grid-row:1}.crow>select{grid-column:2/-1;grid-row:2}.crow>.bal{grid-row:3}.mnav b{min-width:104px}}
+@media(max-height:920px){.amtd{font-size:44px;padding:8px 0 2px}.cats{gap:6px;margin:8px 0}.cats button{min-height:64px;padding:7px 4px 6px;gap:4px}.cats button .ic{width:30px;height:30px}.pad{gap:5px;margin:8px 0}.pad button{min-height:44px;font-size:20px}.sheet .grab{margin-bottom:8px}}
+@media(max-width:600px){.filters select{flex:1 1 calc(33% - 8px);min-width:0;padding:0 8px;font-size:15px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

@@ -211,7 +211,7 @@ function renderHome(){
   const r=62,C=2*Math.PI*r,pc=Math.min(p,1),col=p>=1?'#ff4d3a':p>=.8?'#f0a92a':'var(--ringc)';
   const ang=(dayN/dim)*2*Math.PI-Math.PI/2,x1=80+(r-12)*Math.cos(ang),y1=80+(r-12)*Math.sin(ang),x2=80+(r+12)*Math.cos(ang),y2=80+(r+12)*Math.sin(ang);
   const ring=`<div class="ringw"><svg class="ring" viewBox="0 0 160 160" role="img" aria-label="${bud?Math.round(p*100)+'% of monthly budget used':'No budget set'}"><circle class="rt" cx="80" cy="80" r="${r}"/>${bud?`<circle class="rb" cx="80" cy="80" r="${r}" stroke="${col}" stroke-dasharray="${(C*pc).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 80 80)"/>`:''}<line class="rd" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/></svg><div class="ringc">${bud?`<b>${Math.round(p*100)}%</b><span>of ${money(bud,{round:1})}</span>`:`<b>${cmp(spent)}</b><span>this month</span>`}</div><div class="legendr">White tick: day ${dayN} of ${dim}</div></div>`;
-  const trio=`<div class="trio"><div>Spent this month<b>${money(spent,{round:1})}</b></div><div>Received<b>${money(recv,{round:1})}</b></div><div>${bud?'Left this month':'Net this month'}<b>${bud?money(bud-spent,{round:1}):money(recv-spent,{round:1})}</b></div></div>`;
+  const trio=`<div class="trio"><div>Spent this month<b>${money(spent,{round:1})}</b></div><div>Received<b>${money(recv,{round:1})}</b></div><div>${bud?'Budget left':'Net this month'}<b>${bud?money(bud-spent,{round:1}):money(recv-spent,{round:1})}</b></div></div>`;
   const strip=accs().map(a=>{const b=balance(a.id);return `<div class="acc"><span class="an">${ico(a.type==='upi'?'upi':a.type,18)}${esc(a.name)}</span><b class="${b<0?'neg':''}">${money(b,{round:1})}</b><small>${ACC_TYPES[a.type]||''}</small></div>`}).join('');
   // donut
   const bycat={};for(const t of out)bycat[t.c]=(bycat[t.c]||0)+t.a;
@@ -276,9 +276,9 @@ function renderTimeline(){
   $('#view').innerHTML=`
   <div class="head"><div><h1>Timeline</h1><p class="sub">Every entry, day by day. Swipe left on a phone to delete.</p></div>${monthNav()}</div>
   <div class="filters"><label class="search">${ico('search')}<input id="q" type="search" placeholder="Search payee, note, tag or amount" value="${esc(tl.q)}" aria-label="Search"></label>
-  <select id="fk" aria-label="Type">${opt([['out','Spent'],['in','Received'],['xfer','Transfers']],tl.k,'All types')}</select>
-  <select id="fc" aria-label="Category">${opt(S.meta.categories.map(c=>[c.id,c.name]),tl.c,'All categories')}</select>
-  <select id="fa" aria-label="Account">${opt(accs().map(a=>[a.id,a.name]),tl.acc,'All accounts')}</select></div>
+  <select id="fk" aria-label="Type">${opt([['out','Spent'],['in','Received'],['xfer','Transfers']],tl.k,'Any type')}</select>
+  <select id="fc" aria-label="Category">${opt(S.meta.categories.map(c=>[c.id,c.name]),tl.c,'Category')}</select>
+  <select id="fa" aria-label="Account">${opt(accs().map(a=>[a.id,a.name]),tl.acc,'Account')}</select></div>
   ${tl.day?`<button class="chip" data-act="clrDay">${esc(dayLabel(tl.day))} ${ico('x',14)}</button>`:''}
   <div class="sumrow"><div>Spent<b>${money(fs)}</b></div><div>Received<b>${money(fr)}</b></div><div>Entries<b>${list.length}</b></div></div>
   ${groups.length?groups.map(g=>{const ds=sum(g.t.filter(t=>t.k==='out'));return `<section class="day"><div class="dayh"><b>${esc(dayLabel(g.d))}</b><span>${ds?`<strong>${money(ds)}</strong> spent · `:''}${money(run[g.d]||0,{round:1})} month so far</span></div><ul class="txs">${g.t.map(txRow).join('')}</ul></section>`}).join(''):`<div class="empty"><b>${all.length?'Nothing matches':'No entries this month'}</b>${all.length?'Try a different search or filter.':'Tap + to add one.'}</div>`}`;
@@ -445,7 +445,7 @@ function renderGoals(){
   if(gs.length&&lt.length){const left=sum(lt.filter(t=>t.k==='in'&&t.c!=='refund'))-sum(lt.filter(t=>t.k==='out'))+sum(lt.filter(t=>t.k==='in'&&t.c==='refund'));
     let seen=false;try{seen=localStorage.getItem('spendo-sur-'+lm)==='1'}catch(e){}
     const tgt=P.order.map(id=>P.plans[id]).find(p=>p.status!=='done');
-    if(left>=50000&&!seen&&tgt){const amt=floorTo(left*SAFETY,10000);sur=`<section class="card s12 gsur"><div><b>You had ${money(left,{round:1})} left over in ${esc(mName(lm))}.</b><small>Moving ${money(amt,{round:1})} into ${esc(tgt.g.name)} keeps you ahead. Only do this once the money is actually set aside.</small></div><div class="btns"><button class="btn dark" data-act="gsur" data-id="${esc(tgt.g.id)}" data-v="${amt}" data-m="${lm}">Add ${money(amt,{round:1})}</button><button class="btn" data-act="gsurno" data-m="${lm}">Not now</button></div></section>`}}
+    if(left>=50000&&!seen&&tgt){const amt=Math.min(floorTo(left*SAFETY,10000),tgt.rem);sur=`<section class="card s12 gsur"><div><b>You had ${money(left,{round:1})} left over in ${esc(mName(lm))}.</b><small>${amt>=tgt.rem?`That's enough to finish ${esc(tgt.g.name)} (${money(amt,{round:1})} to go).`:`Moving ${money(amt,{round:1})} into ${esc(tgt.g.name)} keeps you ahead.`} Only do this once the money is actually set aside.</small></div><div class="btns"><button class="btn dark" data-act="gsur" data-id="${esc(tgt.g.id)}" data-v="${amt}" data-m="${lm}">Add ${money(amt,{round:1})}</button><button class="btn" data-act="gsurno" data-m="${lm}">Not now</button></div></section>`}}
   const cards=P.order?P.order.map(id=>goalCard(P.plans[id])).join(''):'';
   $('#view').innerHTML=`<div class="head"><div><h1>Goals</h1><p class="sub">Tell Spendo what you're saving for. It works out the monthly amount and where it can realistically come from.</p></div><button class="btn pri" data-act="gnew">+ New goal</button></div>
   <div class="grid">${band}${sur}${cards||(a.empty?'':`<section class="card s12"><div class="empty"><b>What are you saving for?</b>Pick one to start, or make your own.<div class="btns" style="justify-content:center;margin-top:14px">${GOAL_IDEAS.map(([n,t,mo])=>`<button class="btn" data-act="gidea" data-n="${esc(n)}" data-t="${t}" data-mo="${mo}">${esc(n)} · ${money(t,{round:1})}</button>`).join('')}</div></div></section>`)}
@@ -533,8 +533,8 @@ function drawSheet(){
   ${k==='xfer'?`<div class="lbl">From</div><div class="chips">${accs().map(a=>chip(a,'acc',sh.acc)).join('')}</div><div class="lbl">To</div><div class="chips">${accs().map(a=>chip(a,'to',sh.to)).join('')}</div>`
   :`<div class="cats">${shown.map(c=>`<button data-cat="${esc(c.id)}" class="${c.id===sh.c?'on':''}" style="--c:${esc(c.color)}"><span class="ic" style="--c:${esc(c.color)}">${ico(c.icon,20)}</span>${esc(c.name)}</button>`).join('')}${list.length>8?`<button data-act="allCats" style="--c:var(--muted)"><span class="ic" style="--c:var(--muted)">${ico('other',20)}</span>${sh.all?'Less':'More'}</button>`:''}</div>
   <div class="chips">${accs().map(a=>chip(a,'acc',sh.acc)).join('')}</div>`}
-  <div class="two" style="margin-top:8px"><input class="inp" id="sm" placeholder="${k==='in'?'From (e.g. Salary)':'Payee or note (e.g. Swiggy)'}" value="${esc(sh.m)}" aria-label="Payee or note" autocomplete="off"><input class="inp" id="sd" type="date" value="${esc(sh.d)}" max="${todayISO()}" aria-label="Date"></div>
-  <input class="inp" id="st" style="width:100%;margin-top:8px" placeholder="Tags, e.g. trip-goa work" value="${esc(sh.tags)}" aria-label="Tags">
+  <input class="inp" id="sm" style="width:100%;margin-top:8px" placeholder="${k==='in'?'From, e.g. Salary':'Payee or note, e.g. Swiggy'}" value="${esc(sh.m)}" aria-label="Payee or note" autocomplete="off">
+  <div class="two" style="margin-top:8px"><input class="inp" id="sd" type="date" value="${esc(sh.d)}" max="${todayISO()}" aria-label="Date"><input class="inp" id="st" placeholder="Tags, e.g. goa" value="${esc(sh.tags)}" aria-label="Tags"></div>
   <div class="pad">${['1','2','3','4','5','6','7','8','9','.','0','del'].map(x=>`<button data-key="${x}" aria-label="${x==='del'?'Backspace':x}">${x==='del'?ico('del',24):x}</button>`).join('')}</div>
   <div class="sact">${sh.orig?`<button class="btn danger" data-act="sdel" aria-label="Delete entry">${ico('trash')}</button>`:`<button class="btn" data-act="close">Cancel</button>`}<button class="btn pri" data-act="save">${sh.orig?'Update':'Save'}</button></div>`;
   updAmt();
