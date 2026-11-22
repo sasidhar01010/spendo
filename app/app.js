@@ -45,8 +45,8 @@ const DEF_CATS=[['food','Food','food','#e4572e','out'],['transport','Transport',
 /* ---------- state, sign-in & sync (Supabase) ---------- */
 const CFG=window.SPENDO_CONFIG||{};
 const LS_KEY='spendo-v2',LS_BASE='spendo-base-v2',LS_GUEST='spendo-guest';
-const blankMeta=()=>({v:1,currency:'INR',name:'',budget:0,budgets:{},accounts:[{id:'cash',name:'Cash',type:'cash',opening:0}],categories:DEF_CATS.map(c=>({...c})),lastAcc:'cash',onboarded:false});
-function fixMeta(m){const b=blankMeta();m={...b,...(m||{})};if(!Array.isArray(m.accounts)||!m.accounts.length)m.accounts=b.accounts;if(!Array.isArray(m.categories)||!m.categories.length)m.categories=b.categories;if(!m.budgets||typeof m.budgets!=='object')m.budgets={};return m}
+const blankMeta=()=>({v:1,currency:'INR',name:'',budget:0,budgets:{},accounts:[{id:'cash',name:'Cash',type:'cash',opening:0}],categories:DEF_CATS.map(c=>({...c})),lastAcc:'cash',onboarded:false,goals:[]});
+function fixMeta(m){const b=blankMeta();m={...b,...(m||{})};if(!Array.isArray(m.accounts)||!m.accounts.length)m.accounts=b.accounts;if(!Array.isArray(m.categories)||!m.categories.length)m.categories=b.categories;if(!m.budgets||typeof m.budgets!=='object')m.budgets={};if(!Array.isArray(m.goals))m.goals=[];return m}
 function loadLocal(){try{const j=JSON.parse(localStorage.getItem(LS_KEY));if(j&&j.meta&&j.months)return{meta:fixMeta(j.meta),months:j.months}}catch(e){}return null}
 let S=loadLocal()||{meta:blankMeta(),months:{}};
 function saveLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify(S))}catch(e){}}
@@ -56,21 +56,23 @@ function saveBase(){try{base?localStorage.setItem(LS_BASE,JSON.stringify(base)):
 const isGuest=()=>{try{return localStorage.getItem(LS_GUEST)==='1'}catch(e){return false}};
 const setGuest=v=>{try{v?localStorage.setItem(LS_GUEST,'1'):localStorage.removeItem(LS_GUEST)}catch(e){}};
 let sb=null,session=null,uid=null,cloud='local',booted=false;
-const TABLES=['profiles','accounts','categories','budgets','transactions'];
-const PK={profiles:'id',accounts:'user_id,id',categories:'user_id,id',budgets:'user_id,category_id',transactions:'user_id,id'};
+const TABLES=['profiles','accounts','categories','budgets','transactions','goals'];
+const PK={profiles:'id',accounts:'user_id,id',categories:'user_id,id',budgets:'user_id,category_id',transactions:'user_id,id',goals:'user_id,id'};
 const KMAP={out:'debit',in:'credit',xfer:'transfer'},KBACK={debit:'out',credit:'in',transfer:'xfer'};
-function toRows(){const r={profiles:{},accounts:{},categories:{},budgets:{},transactions:{}},m=S.meta;
+function toRows(){const r={profiles:{},accounts:{},categories:{},budgets:{},transactions:{},goals:{}},m=S.meta;
   r.profiles[uid]={id:uid,name:m.name||'',base_currency:m.currency||'INR',budget_minor:Math.round(+m.budget||0),last_account_id:m.lastAcc||null,onboarded:!!m.onboarded};
   m.accounts.forEach((a,i)=>{r.accounts[a.id]={user_id:uid,id:a.id,name:a.name,type:a.type,opening_minor:Math.round(+a.opening||0),sort:i}});
   m.categories.forEach((c,i)=>{r.categories[c.id]={user_id:uid,id:c.id,name:c.name,icon:c.icon,color:c.color,kind:c.kind==='in'?'income':'expense',sort:i}});
   for(const [cid,l] of Object.entries(m.budgets))if(+l>0)r.budgets[cid]={user_id:uid,category_id:cid,limit_minor:Math.round(+l)};
   for(const t of Object.values(S.months).flat())r.transactions[t.id]={user_id:uid,id:t.id,type:KMAP[t.k]||'debit',amount_minor:t.a,currency:m.currency||'INR',category_id:t.c||null,account_id:t.acc,to_account_id:t.to||null,merchant:t.m||'',tags:t.tags||[],occurred_on:t.d,created_ms:t.t||0,is_sample:!!t.s};
+  for(const g of m.goals||[])r.goals[g.id]={user_id:uid,id:g.id,name:g.name,target_minor:Math.round(g.target),target_date:g.date,saved_minor:Math.round(g.saved||0)};
   return r}
 function fromRows(R){const p=Object.values(R.profiles)[0]||{};
   const meta=fixMeta({currency:p.base_currency||'INR',name:p.name||'',budget:+p.budget_minor||0,lastAcc:p.last_account_id||'',onboarded:!!p.onboarded,
     accounts:Object.values(R.accounts).sort((a,b)=>a.sort-b.sort).map(a=>({id:a.id,name:a.name,type:a.type,opening:+a.opening_minor||0})),
     categories:Object.values(R.categories).sort((a,b)=>a.sort-b.sort).map(c=>({id:c.id,name:c.name,icon:c.icon||'other',color:c.color||'#8a8178',kind:c.kind==='income'?'in':'out'})),
-    budgets:Object.fromEntries(Object.values(R.budgets).map(b=>[b.category_id,+b.limit_minor]))});
+    budgets:Object.fromEntries(Object.values(R.budgets).map(b=>[b.category_id,+b.limit_minor])),
+    goals:Object.values(R.goals||{}).map(g=>({id:g.id,name:g.name,target:+g.target_minor,date:g.target_date,saved:+g.saved_minor||0}))});
   const months={};for(const t of Object.values(R.transactions)){const x={id:t.id,k:KBACK[t.type]||'out',a:+t.amount_minor,c:t.category_id,acc:t.account_id,to:t.to_account_id,d:t.occurred_on,m:t.merchant||'',tags:t.tags||[],t:+t.created_ms||0};
     if(t.is_sample)x.s=1;const mk=x.d.slice(0,7);(months[mk]=months[mk]||[]).push(x)}
   return{meta,months}}
@@ -96,7 +98,7 @@ async function pull(adopt){
   try{const R={};for(const t of TABLES){R[t]={};for(const r of await fetchAll(t))R[t][t==='budgets'?r.category_id:r.id]=r}
     if(!Object.keys(R.profiles).length){ // brand-new account: upload what is on this device
       if(!adopt&&!isGuest()&&base&&base.uid!==uid)S={meta:blankMeta(),months:{}};
-      base={uid,profiles:{},accounts:{},categories:{},budgets:{},transactions:{}};saveBase();saveLocal();await flush();if(booted)render();return}
+      base={uid,profiles:{},accounts:{},categories:{},budgets:{},transactions:{},goals:{}};saveBase();saveLocal();await flush();if(booted)render();return}
     const local=S;S=fromRows(R);const srv=toRows();
     if(adopt){ // keep entries made before signing in
       for(const a of local.meta.accounts)if(!acc(a.id))S.meta.accounts.push(a);
@@ -176,7 +178,7 @@ function usage(kind){const n={};for(const t of allTx())if(t.k===kind&&t.c)n[t.c]
 /* ---------- view state ---------- */
 let view='home',vm=curMonth();
 const tl={q:'',k:'',c:'',acc:'',day:''};
-function route(){const h=location.hash.slice(1);view=['home','timeline','budgets','more'].includes(h)?h:'home';render();window.scrollTo(0,0)}
+function route(){const h=location.hash.slice(1);view=['home','timeline','budgets','goals','more'].includes(h)?h:'home';render();window.scrollTo(0,0)}
 window.addEventListener('hashchange',route);
 
 function monthNav(){const nx=vm>=curMonth();return `<div class="mnav"><button class="ib" data-act="prevM" aria-label="Previous month">${ico('chevL')}</button><b>${mName(vm)}</b><button class="ib" data-act="nextM" aria-label="Next month" ${nx?'disabled':''}>${ico('chevR')}</button></div>`}
@@ -234,6 +236,7 @@ function renderHome(){
   <div class="grid">
     <section class="hero s12" aria-label="Today"><div style="position:relative;z-index:1">${heroL}${trio}</div>${ring}</section>
     <section class="s12" aria-label="Accounts"><div class="strip">${strip}</div></section>
+    ${homeGoals()}
     <section class="card s8"><div class="ch"><h3>Daily spend, last 30 days</h3><div class="keys"><span><i style="background:var(--brick)"></i>Each day</span><span><i style="background:var(--ink)"></i>7-day average</span><span><i style="background:var(--line)"></i>30 days before</span></div></div><div class="fig" id="trend"><svg aria-label="Daily spend chart"></svg><div class="tip" id="tip"></div></div></section>
     <section class="card s4"><div class="ch"><h3>Where it went</h3></div>${spent?`<div class="donut"><svg viewBox="0 0 120 120" role="img" aria-label="Spending by category"><circle cx="60" cy="60" r="${dr}" fill="none" stroke="var(--soft)" stroke-width="18"/>${arcs}<text x="60" y="58" text-anchor="middle" font-size="15" font-weight="800" fill="currentColor">${cmp(spent)}</text><text x="60" y="74" text-anchor="middle" font-size="9" fill="var(--muted)">spent</text></svg><ul class="leg">${leg}</ul></div>`:`<div class="empty"><b>Nothing spent yet</b>Your categories will appear here.</div>`}</section>
     <section class="card s6"><div class="ch"><h3>Spending calendar</h3><small>Darker means more spent · tap a day</small></div><div class="hm">${hm}</div></section>
@@ -298,6 +301,180 @@ function renderBudgets(){
   </section></div>`;
 }
 
+/* ---------- goals: analysis & planning ---------- */
+// Everything here is plain arithmetic on the user's own entries: no AI, works offline.
+const FIXED_CATS=new Set(['rent','bills','health']);
+const RX_DELIVERY=/swiggy|zomato|eatsure|domino|pizza|kfc|mcdonald|burger king|box8|faasos|behrouz|magicpin/i;
+const RX_CAB=/uber|\bola\b|rapido|blu ?smart|namma yatri|meru|indrive/i;
+const SAFETY=0.9; // keep 10% of free cash as a cushion for irregular costs
+const AVG_MONTH=30.44;
+const ceilTo=(v,s)=>Math.ceil(v/s)*s, floorTo=(v,s)=>Math.floor(v/s)*s;
+const listNames=a=>a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+const goals=()=>S.meta.goals||(S.meta.goals=[]);
+const goalById=id=>goals().find(g=>g.id===id);
+const monthsLabel=b=>{const s=b.slice().sort(),f=m=>pd(m+'-01').toLocaleDateString('en-IN',{month:'short'});return s.length>1?`${f(s[0])}–${f(s[s.length-1])} ${s[s.length-1].slice(0,4)}`:mName(s[0])};
+
+function analyze(){
+  const cm=curMonth(),dayN=new Date().getDate(),all=allTx();
+  const first=all.reduce((m,t)=>!m||t.d<m?t.d:m,'');
+  if(!first)return{empty:true};
+  const cov=m=>{const start=first.slice(0,7)===m?+first.slice(8):1,end=m===cm?dayN:daysIn(m);return Math.max(1,end-start+1)};
+  let basis=[1,2,3].map(i=>shiftM(cm,-i)).filter(m=>m>=first.slice(0,7)&&monthTx(m).some(t=>t.k!=='xfer'));
+  if(basis.length>1)basis=basis.filter(m=>cov(m)>=20).length?basis.filter(m=>cov(m)>=20):basis;
+  const usingCurrent=!basis.length;if(usingCurrent)basis=[cm];
+  const n=basis.length,days=basis.reduce((s,m)=>s+cov(m),0);
+  let inc=0,refund=0;const catAmt={},merch={};
+  for(const m of basis){const f=daysIn(m)/cov(m); // stretch a short month to a full one, for flexible spending only
+    for(const t of monthTx(m)){
+      if(t.k==='in'){if(t.c==='refund')refund+=t.a;else inc+=t.a;continue}
+      if(t.k!=='out')continue;
+      const k=FIXED_CATS.has(t.c)?1:f;catAmt[t.c]=(catAmt[t.c]||0)+t.a*k;
+      const key=(t.m||'').trim().toLowerCase()||'—',M=(merch[t.c]=merch[t.c]||{});
+      const e=(M[key]=M[key]||{name:(t.m||'').trim(),cnt:0,amt:0,raw:[],byMonth:{}});
+      e.cnt+=k;e.amt+=t.a*k;e.raw.push(t.a);(e.byMonth[m]=e.byMonth[m]||[]).push(t.a)}}
+  const r100=v=>Math.round(v/100)*100,I=r100(inc/n),cats={};let E=-refund/n;
+  for(const [c,v] of Object.entries(catAmt)){cats[c]=v/n;E+=v/n}
+  E=r100(E);const S0=I-E,A=Math.max(0,floorTo(S0*SAFETY,100));
+  // merchant view per category, per average month
+  const ms=c=>Object.values(merch[c]||{}).map(e=>({name:e.name,perMonth:e.cnt/n,monthly:e.amt/n,ticket:e.raw.reduce((a,b)=>a+b,0)/e.raw.length,byMonth:e.byMonth})).sort((a,b)=>b.monthly-a.monthly);
+  // subscriptions: same payee, once a month, near-identical amount, in 2+ months
+  const subs=[];
+  if(n>=2)for(const c of Object.keys(merch)){if(FIXED_CATS.has(c))continue;for(const e of ms(c)){const mm=Object.values(e.byMonth);
+    if(e.name&&mm.length>=2&&mm.every(x=>x.length===1)){const v=mm.map(x=>x[0]),avg=v.reduce((a,b)=>a+b,0)/v.length;if(v.every(x=>Math.abs(x-avg)<=avg*.05))subs.push({c,name:e.name,amt:avg})}}}
+  const subKeys=new Set(subs.map(s=>s.c+'|'+s.name.toLowerCase()));
+  const items=[];const add=o=>{if(o.cap>=10000)items.push({...o,left:o.cap})};
+  const cn=id=>cat(id)?.name||'Other';
+  for(const c of Object.keys(cats)){if(FIXED_CATS.has(c)||!cat(c))continue;
+    const list=ms(c).filter(e=>!subKeys.has(c+'|'+e.name.toLowerCase()));
+    const tot=list.reduce((s,e)=>s+e.monthly,0);if(tot<=0)continue;
+    if(c==='food'){
+      const d=list.filter(e=>RX_DELIVERY.test(e.name)),D=d.reduce((s,e)=>s+e.monthly,0),dn=d.reduce((s,e)=>s+e.perMonth,0);
+      if(D>0)add({ease:2,c,kind:'count',cap:D*.5,ticket:D/dn,base:dn,unit:'order',
+        verb:k=>`Order food delivery ${k} fewer time${k>1?'s':''} a month`,
+        why:`You order about ${Math.round(dn)} times a month on ${listNames(d.slice(0,2).map(e=>e.name))}, averaging ${money(D/dn,{round:1})}.`});
+      const O=tot-D;if(O>0)add({ease:7,c,kind:'amt',cap:O*.1,verb:x=>`Trim groceries and eating out by ${money(x,{round:1})}`,why:`That's about ${Math.round(.1*100)}% or less of the ${money(O,{round:1})} you spend there each month.`});
+    }else if(c==='transport'){
+      const d=list.filter(e=>RX_CAB.test(e.name)),C=d.reduce((s,e)=>s+e.monthly,0),dn=d.reduce((s,e)=>s+e.perMonth,0);
+      if(C>0)add({ease:4,c,kind:'count',cap:C*.4,ticket:C/dn,base:dn,unit:'ride',
+        verb:k=>`Swap ${k} cab ride${k>1?'s':''} a month for metro, bus or auto`,
+        why:`You take about ${Math.round(dn)} rides a month on ${listNames(d.slice(0,2).map(e=>e.name))}, averaging ${money(C/dn,{round:1})}.`});
+    }else{
+      const r=c==='fun'?.4:c==='shopping'?.35:.25,top=list.slice(0,2).map(e=>e.name).filter(Boolean),cnt=list.reduce((s,e)=>s+e.perMonth,0);
+      add({ease:c==='fun'?1:c==='shopping'?3:6,c,kind:'cap',cap:tot*r,avg:tot,
+        verb:x=>list.length<ms(c).length?`Spend ${money(x,{round:1})} less a month on ${cn(c).toLowerCase()}, not counting subscriptions`:`Keep ${cn(c).toLowerCase()} under ${money(floorTo(tot-x,10000),{round:1})} a month`,
+        why:`You average ${money(tot,{round:1})} a month across about ${Math.max(1,Math.round(cnt))} payment${Math.round(cnt)>1?'s':''}${top.length?`, mostly ${listNames(top)}`:''}.`});
+    }}
+  for(const s of subs)add({ease:5,c:s.c,kind:'all',cap:s.amt,verb:()=>`Pause ${s.name} until you reach this goal`,why:`It charges ${money(s.amt)} every month.`});
+  items.sort((a,b)=>a.ease-b.ease||b.cap-a.cap);
+  const lowConf=days<28;
+  return{I,E,S:S0,A,cats,items,basis,n,days,usingCurrent,lowConf,label:usingCurrent?`${days} day${days>1?'s':''} of entries so far`:`${monthsLabel(basis)} · ${days} days of entries`};
+}
+
+// take savings from the cut items (shared across goals), easiest first
+function takeCuts(items,gap){const out=[];let left=gap;
+  for(const it of items){if(left<=0)break;if(it.left<5000)continue;let take;
+    if(it.kind==='all'){take=it.cap}
+    else if(it.kind==='count'){const k=Math.max(1,Math.ceil(Math.min(it.left,left)/it.ticket));take=Math.min(it.left,k*it.ticket);const kk=Math.max(1,Math.round(take/it.ticket));out.push({...it,take,text:it.verb(kk)});it.left-=take;left-=take;continue}
+    else take=Math.min(it.left,ceilTo(left,5000));
+    take=Math.min(take,it.left);out.push({...it,take,text:it.verb(take)});it.left-=take;left-=take}
+  return{cuts:out,closed:left<=0,short:Math.max(0,left)}}
+
+function planGoals(){
+  const a=analyze();if(a.empty)return{a,plans:{}};
+  const items=a.items.map(x=>({...x}));let free=a.A;const plans={};const now=new Date();now.setHours(0,0,0,0);
+  const blocked=[];const sorted=goals().slice().sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
+  for(const g of sorted){const rem=Math.max(0,g.target-(g.saved||0)),p={g,rem};plans[g.id]=p;
+    if(rem<=0){p.status='done';continue}
+    const dd=(pd(g.date)-now)/864e5;if(dd<=0){p.status='overdue';continue}
+    p.months=dd/AVG_MONTH;p.R=ceilTo(rem/Math.max(p.months,.5),10000);
+    if(a.I<=0){p.status='noincome';continue}
+    p.avail=free;
+    p.after=blocked.slice();
+    if(free>=p.R){p.status='ok';p.spare=free-p.R;free-=p.R;continue}
+    const gap=p.R-free,snap=items.map(i=>i.left),capBefore=items.reduce((s,i)=>s+Math.max(0,i.left),0);
+    const t=takeCuts(items,gap);p.cuts=t.cuts;p.gap=gap;p.saving=t.cuts.reduce((s,c)=>s+c.take,0);
+    if(t.closed){p.status='stretch';free=0;p.after=blocked.slice();continue}
+    // can't be met as set: don't let it hold money or cuts that later goals could use
+    items.forEach((i,k)=>{i.left=snap[k]});p.cuts=null;blocked.push(g.name);
+    p.status='hard';p.max=floorTo(p.avail+capBefore,10000);
+    if(p.max>0){const mo=rem/p.max,d=new Date(now);d.setDate(d.getDate()+Math.ceil(mo*AVG_MONTH));d.setDate(1);d.setMonth(d.getMonth()+1);d.setDate(0);p.newDate=iso(d);
+      p.afford=floorTo((g.saved||0)+p.max*p.months,100000)}}
+  return{a,plans,order:sorted.map(g=>g.id)}}
+
+/* ---------- goals view ---------- */
+const GOAL_IDEAS=[['New phone',8000000,6],['Goa trip',3000000,4],['Emergency fund',10000000,12],['Laptop',6000000,8]];
+function gRing(p,sz=64){const r=sz/2-6,C=2*Math.PI*r,v=Math.max(0,Math.min(1,p));return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" aria-hidden="true"><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="var(--soft)" stroke-width="7"/>${v>0?`<circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="var(--brick)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(C*v).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 ${sz/2} ${sz/2})"/>`:''}<text x="50%" y="54%" text-anchor="middle" font-size="${sz/4.4}" font-weight="800" fill="currentColor">${Math.round(v*100)}%</text></svg>`}
+const CHIP={ok:['good','On track'],stretch:['warn','Doable with changes'],hard:['bad','Not realistic yet'],done:['good','Reached'],overdue:['bad','Date passed'],noincome:['muted','Needs your income']};
+const monthYear=d=>pd(d).toLocaleDateString('en-IN',{month:'short',year:'numeric'});
+function planPace(p){ // how this month is going against the suggested caps
+  const cm=curMonth(),f=new Date().getDate()/daysIn(cm),by={};
+  for(const c of p.cuts||[])by[c.c]=(by[c.c]||0)+c.take;
+  let plan=0,act=0;const a=lastPlan.a;
+  for(const [c,cut] of Object.entries(by)){plan+=(a.cats[c]-cut)*f;act+=sum(monthTx(cm).filter(t=>t.k==='out'&&t.c===c))}
+  if(!plan||f<.1)return'';const d=act-plan;
+  return `<p class="note gpace">${d<=0?`This month so far you're <b style="color:var(--good)">${money(-d,{round:1})} under</b> the plan's pace in these categories.`:`This month so far you're <b style="color:var(--brick)">${money(d,{round:1})} over</b> the plan's pace in these categories.`}</p>`}
+function goalCard(p){
+  const g=p.g,[cc,cl]=CHIP[p.status],pct=(g.saved||0)/g.target;let body='';
+  const need=p.R?`Save <b>${money(p.R,{round:1})} a month</b> for ${p.months<1.5?Math.max(1,Math.round(p.months*4.35))+' weeks':Math.round(p.months)+' months'} to reach it by ${monthYear(g.date)}.`:'';
+  if(p.status==='ok')body=`<p class="gl">${need} You have about ${money(p.avail,{round:1})} a month free${p.avail<lastPlan.a.A-1?' after earlier goals':''}, so you're covered with <b>${money(p.spare,{round:1})}</b> to spare.</p>`;
+  else if(p.status==='stretch')body=`<p class="gl">${need} ${p.avail>0?`You have about ${money(p.avail,{round:1})} a month free${p.avail<lastPlan.a.A-1?' after earlier goals':''}, so you need ${money(p.gap,{round:1})} more.`:`Right now nothing is left over at the end of the month, so the whole amount has to come from changes.`} These changes cover it, based on what you actually spend:</p>
+    <ol class="cuts">${p.cuts.map(c=>`<li><span class="ic" style="--c:${esc(cat(c.c)?.color||'#8a8178')}">${ico(cat(c.c)?.icon)}</span><div><b>${esc(c.text)}</b><small>${esc(c.why)}</small></div><span class="sv">+${money(c.take,{round:1})}</span></li>`).join('')}</ol>
+    <div class="ctot"><span>Freed up each month</span><b>${money(p.saving,{round:1})}</b></div>
+    <div class="btns"><button class="btn dark" data-act="gapply" data-id="${esc(g.id)}">Set these as my budgets</button></div>${planPace(p)}`;
+  else if(p.status==='hard')body=p.max<=0?`<p class="gl">${need} Your free money is already planned for earlier goals, so there's nothing left for this one yet. Move its date later, or reach an earlier goal first.</p>`:`<p class="gl">${need} Even with realistic changes you can free up about ${money(p.max,{round:1})} a month${p.avail<lastPlan.a.A-1?' after earlier goals':''}, so you'd be ${money(p.R-p.max,{round:1})} short each month. Pick what suits you:</p>
+    <div class="btns">${p.newDate?`<button class="btn" data-act="gdate" data-id="${esc(g.id)}" data-v="${p.newDate}">Move the date to ${monthYear(p.newDate)}</button>`:''}${p.afford>((g.saved||0))?`<button class="btn" data-act="gtarget" data-id="${esc(g.id)}" data-v="${p.afford}">Aim for ${money(p.afford,{round:1})} by ${monthYear(g.date)}</button>`:''}</div>`;
+  else if(p.status==='done')body=`<p class="gl">You've saved the full amount. Enjoy it, or raise the target to keep going.</p>`;
+  else if(p.status==='overdue')body=`<p class="gl">The date has passed with ${money(p.rem,{round:1})} still to go. Pick a new date to get a fresh plan.</p>`;
+  else body=`<p class="gl">${need} To check whether that's realistic, Spendo needs your income. Log your salary as <b>Received</b>.</p><div class="btns"><button class="btn dark" data-act="addIncome">Add income</button></div>`;
+  if(p.after&&p.after.length&&p.status!=='hard')body+=`<p class="note">This plan assumes you rethink ${esc(listNames(p.after))} first, since that goal isn't reachable as set.</p>`;
+  return `<section class="card s12 goal"><div class="gh">${gRing(pct)}<div class="gt"><h2>${esc(g.name)}</h2><small>${money(g.saved||0,{round:1})} saved of ${money(g.target,{round:1})} · by ${esc(monthYear(g.date))}</small></div><span class="gchip ${cc}">${cl}</span></div>${body}
+  <div class="gf"><div class="money"><span>${esc(sym())}</span><input class="inp" data-gsave="${esc(g.id)}" inputmode="decimal" placeholder="Amount" aria-label="Add savings to ${esc(g.name)}"></div><button class="btn" data-act="gadd" data-id="${esc(g.id)}">Add savings</button><button class="btn" data-act="gedit" data-id="${esc(g.id)}">Edit</button><button class="ib" data-act="gdel" data-id="${esc(g.id)}" aria-label="Delete goal">${ico('trash',18)}</button></div></section>`}
+let lastPlan={a:{},plans:{}};
+function renderGoals(){
+  const P=planGoals();lastPlan=P;const a=P.a,gs=goals();
+  let band;
+  if(a.empty)band=`<section class="card s12"><div class="empty"><b>Add a few entries first</b>Spendo plans goals from what you really earn and spend. A week of entries gives a first estimate; a full month makes it precise.</div></section>`;
+  else{const warn=a.I<=0?`<div class="gwarn">No income logged in this period, so Spendo can't tell what's left over. <button class="lnk" data-act="addIncome">Add your salary</button></div>`
+      :a.S<0?`<div class="gwarn bad">You spend about ${money(-a.S,{round:1})} more than you earn each month. Goals can only come from spending changes until that's fixed.</div>`
+      :a.lowConf?`<div class="gwarn">Based on only ${a.days} days, so treat this as a first estimate. It gets precise after a full month.</div>`:'';
+    band=`<section class="card s12 gband"><div class="ch"><h3>Your average month</h3><small>${esc(a.label)}</small></div>
+    <div class="sumrow g4"><div>Income<b>${money(a.I,{round:1})}</b></div><div>Spending<b>${money(a.E,{round:1})}</b></div><div>Left over<b class="${a.S<0?'neg':''}">${money(a.S,{round:1})}</b></div><div>Safe to save<b>${money(a.A,{round:1})}</b></div></div>
+    <p class="note">"Safe to save" keeps 10% of what's left over as a cushion for surprise costs. Transfers between your own accounts are ignored, and refunds count against spending.</p>${warn}</section>`}
+  // last month's leftover
+  let sur='';const lm=shiftM(curMonth(),-1),lt=monthTx(lm);
+  if(gs.length&&lt.length){const left=sum(lt.filter(t=>t.k==='in'&&t.c!=='refund'))-sum(lt.filter(t=>t.k==='out'))+sum(lt.filter(t=>t.k==='in'&&t.c==='refund'));
+    let seen=false;try{seen=localStorage.getItem('spendo-sur-'+lm)==='1'}catch(e){}
+    const tgt=P.order.map(id=>P.plans[id]).find(p=>p.status!=='done');
+    if(left>=50000&&!seen&&tgt){const amt=floorTo(left*SAFETY,10000);sur=`<section class="card s12 gsur"><div><b>You had ${money(left,{round:1})} left over in ${esc(mName(lm))}.</b><small>Moving ${money(amt,{round:1})} into ${esc(tgt.g.name)} keeps you ahead. Only do this once the money is actually set aside.</small></div><div class="btns"><button class="btn dark" data-act="gsur" data-id="${esc(tgt.g.id)}" data-v="${amt}" data-m="${lm}">Add ${money(amt,{round:1})}</button><button class="btn" data-act="gsurno" data-m="${lm}">Not now</button></div></section>`}}
+  const cards=P.order?P.order.map(id=>goalCard(P.plans[id])).join(''):'';
+  $('#view').innerHTML=`<div class="head"><div><h1>Goals</h1><p class="sub">Tell Spendo what you're saving for. It works out the monthly amount and where it can realistically come from.</p></div><button class="btn pri" data-act="gnew">+ New goal</button></div>
+  <div class="grid">${band}${sur}${cards||(a.empty?'':`<section class="card s12"><div class="empty"><b>What are you saving for?</b>Pick one to start, or make your own.<div class="btns" style="justify-content:center;margin-top:14px">${GOAL_IDEAS.map(([n,t,mo])=>`<button class="btn" data-act="gidea" data-n="${esc(n)}" data-t="${t}" data-mo="${mo}">${esc(n)} · ${money(t,{round:1})}</button>`).join('')}</div></div></section>`)}
+  ${gs.length>1?`<p class="note s12">Goals are funded in date order: the earliest goal gets first claim on your free money.</p>`:''}</div>`}
+function homeGoals(){const gs=goals();if(!gs.length)return `<section class="card s12 ghome"><div><b>Saving for something?</b><small>Set a goal and Spendo plans how to get there from your real spending.</small></div><a class="btn" href="#goals">Set a goal</a></section>`;
+  const P=planGoals();return `<section class="card s12"><div class="ch"><h3>Goals</h3><a href="#goals">Open plan</a></div><div class="gmini">${P.order.slice(0,3).map(id=>{const p=P.plans[id],[cc,cl]=CHIP[p.status];return `<a href="#goals" class="gm">${gRing((p.g.saved||0)/p.g.target,52)}<span><b>${esc(p.g.name)}</b><small>${p.R?money(p.R,{round:1})+' a month · ':''}by ${esc(monthYear(p.g.date))}</small><span class="gchip ${cc}">${cl}</span></span></a>`}).join('')}</div></section>`}
+
+/* ---------- goal editor ---------- */
+let ge=null;
+function openGoal(g,preset){const d=new Date();d.setMonth(d.getMonth()+(preset?.mo||6));d.setDate(1);d.setMonth(d.getMonth()+1);d.setDate(0);
+  ge=g?{...g}:{id:null,name:preset?.n||'',target:preset?.t||0,date:iso(d),saved:0};
+  const minD=new Date();minD.setDate(minD.getDate()+7);const s=esc(sym());
+  $('#gsheet').innerHTML=`<div class="grab"></div><h2>${g?'Edit goal':'New goal'}</h2>
+  <div class="wform"><label class="f">What are you saving for?<input class="inp" id="gn" value="${esc(ge.name)}" placeholder="e.g. iPhone 16, Goa trip" maxlength="40"></label>
+  <div class="two"><label class="f">Total cost<div class="money"><span>${s}</span><input class="inp" id="gtg" inputmode="decimal" value="${ge.target?ge.target/100:''}" placeholder="80000"></div></label>
+  <label class="f">By when?<input class="inp" id="gd" type="date" min="${iso(minD)}" value="${esc(ge.date)}"></label></div>
+  <label class="f">Already saved for it<div class="money"><span>${s}</span><input class="inp" id="gsv" inputmode="decimal" value="${ge.saved?ge.saved/100:''}" placeholder="0"></div></label></div>
+  <div class="sact"><button class="btn" data-act="gclose">Cancel</button><button class="btn pri" data-act="gsave">${g?'Save':'Create plan'}</button></div>`;
+  $('#gov').classList.add('show');setTimeout(()=>{const i=$('#gn');if(i&&!ge.name)i.focus()},50)}
+function saveGoal(){const num=v=>{const n=parseFloat(String(v).replace(/[^\d.]/g,''));return n>0?Math.round(n*100):0};
+  const name=$('#gn').value.trim().slice(0,40),target=num($('#gtg').value),date=$('#gd').value,saved=num($('#gsv').value);
+  if(!name){snack('Give the goal a name');return}if(!target){snack('Enter the total cost');return}if(!date||date<=todayISO()){snack('Pick a date in the future');return}
+  if(ge.id){Object.assign(goalById(ge.id),{name,target,date,saved})}else goals().push({id:newId(),name,target,date,saved});
+  $('#gov').classList.remove('show');ge=null;touch();if(view!=='goals')location.hash='goals';else render();snack('Plan ready')}
+function applyGoal(id){const p=lastPlan.plans[id];if(!p||!p.cuts)return;const by={};for(const c of p.cuts)by[c.c]=(by[c.c]||0)+c.take;
+  const prev={...S.meta.budgets},prevAll=S.meta.budget,names=[];
+  for(const [c,cut] of Object.entries(by)){const v=floorTo(lastPlan.a.cats[c]-cut,10000);if(v>0){S.meta.budgets[c]=v;names.push(`${cat(c)?.name} ${money(v,{round:1})}`)}}
+  touch();render();snack('Budgets set: '+names.join(', '),'',()=>{S.meta.budgets=prev;S.meta.budget=prevAll;touch();render()})}
+
 /* ---------- more ---------- */
 let wipeArm=false,dl=null;
 function renderMore(){
@@ -332,7 +509,7 @@ function renderMore(){
 function render(){
   const a=document.activeElement,aid=a&&a.id&&$('#view').contains(a)?a.id:null,sel=aid&&a.selectionStart;
   $$('[data-v]').forEach(el=>el.classList.toggle('on',el.dataset.v===view));
-  if(view==='home')renderHome();else if(view==='timeline')renderTimeline();else if(view==='budgets')renderBudgets();else renderMore();
+  if(view==='home')renderHome();else if(view==='timeline')renderTimeline();else if(view==='budgets')renderBudgets();else if(view==='goals')renderGoals();else renderMore();
   if(aid){const n=document.getElementById(aid);if(n){n.focus();try{if(sel!=null)n.setSelectionRange(sel,sel)}catch(e){}}}
 }
 
@@ -475,8 +652,8 @@ function importJSON(text){let j;try{j=JSON.parse(text)}catch(e){snack('That back
 function offer(filename,data,mime){const url=URL.createObjectURL(new Blob([data],{type:mime}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);snack('Downloaded '+filename)}
 
 async function wipeAll(){
-  if(uid&&sb){try{clearTimeout(flushT);for(const t of ['transactions','budgets','categories','accounts']){const{error}=await sb.from(t).delete().eq('user_id',uid);if(error)throw error}
-      const{error}=await sb.from('profiles').delete().eq('id',uid);if(error)throw error;base={uid,profiles:{},accounts:{},categories:{},budgets:{},transactions:{}};saveBase()}
+  if(uid&&sb){try{clearTimeout(flushT);for(const t of ['goals','transactions','budgets','categories','accounts']){const{error}=await sb.from(t).delete().eq('user_id',uid);if(error)throw error}
+      const{error}=await sb.from('profiles').delete().eq('id',uid);if(error)throw error;base={uid,profiles:{},accounts:{},categories:{},budgets:{},transactions:{},goals:{}};saveBase()}
     catch(e){snack('Could not delete from the cloud. Check your connection and try again.','bad');return}}
   S={meta:blankMeta(),months:{}};nfc={};saveLocal();render();showWelcome();snack('All your data was deleted')}
 
@@ -494,6 +671,7 @@ document.addEventListener('click',e=>{
   const t=e.target;const A=t.closest('[data-act]'),act=A&&A.dataset.act;
   if(t.closest('.txin')&&!act){if(noClick)return;const tx=findTx(t.closest('.tx').dataset.id);if(tx)openSheet(tx);return}
   if(t===$('#ov')){closeSheet();return}
+  if(t===$('#gov')){$('#gov').classList.remove('show');ge=null;return}
   const go=t.closest('[data-go]');if(go){location.hash=go.dataset.go;return}
   if(sh){const k=t.closest('[data-k]'),c=t.closest('[data-cat]'),ac=t.closest('[data-acc]'),to=t.closest('[data-to]'),ky=t.closest('[data-key]');
     if(k){sh.k=k.dataset.k;sh.c=null;if(sh.k==='xfer'&&!sh.to)sh.to=(accs().find(a=>a.id!==sh.acc)||{}).id||'';drawSheet();return}
@@ -507,6 +685,19 @@ document.addEventListener('click',e=>{
   const id=A.dataset.id;
   switch(act){
     case 'add':openSheet();break;
+    case 'gnew':openGoal();break;
+    case 'gidea':openGoal(null,{n:A.dataset.n,t:+A.dataset.t,mo:+A.dataset.mo});break;
+    case 'gedit':openGoal(goalById(id));break;
+    case 'gclose':$('#gov').classList.remove('show');ge=null;break;
+    case 'gsave':saveGoal();break;
+    case 'gdel':{const g=goalById(id);if(!g)break;const i=goals().indexOf(g);goals().splice(i,1);touch();render();snack(`Deleted ${g.name}`,'',()=>{goals().splice(i,0,g);touch();render()});break}
+    case 'gadd':{const inp=$(`[data-gsave="${CSS.escape(id)}"]`),v=Math.round((parseFloat(String(inp?.value||'').replace(/[^\d.]/g,''))||0)*100);const g=goalById(id);if(!g)break;if(!v){snack('Type how much you set aside');inp&&inp.focus();break}g.saved=(g.saved||0)+v;touch();render();snack(`Added ${money(v)} to ${g.name}`,'',()=>{g.saved-=v;touch();render()});break}
+    case 'gapply':applyGoal(id);break;
+    case 'gdate':{const g=goalById(id);if(g){g.date=A.dataset.v;touch();render();snack('Date moved to '+monthYear(g.date))}break}
+    case 'gtarget':{const g=goalById(id);if(g){g.target=+A.dataset.v;touch();render();snack('Target set to '+money(g.target))}break}
+    case 'gsur':{const g=goalById(id);if(g){const v=+A.dataset.v;g.saved=(g.saved||0)+v;try{localStorage.setItem('spendo-sur-'+A.dataset.m,'1')}catch(e){}touch();render();snack(`Added ${money(v)} to ${g.name}`)}break}
+    case 'gsurno':try{localStorage.setItem('spendo-sur-'+A.dataset.m,'1')}catch(e){}render();break;
+    case 'addIncome':openSheet(null,'in');break;
     case 'close':closeSheet();break;
     case 'save':saveSheet();break;
     case 'sdel':{const i=sh.id;closeSheet();delTx(i);break}
@@ -535,6 +726,8 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('txin')){e.target.click();return}
+  if(ge&&e.key==='Escape'){$('#gov').classList.remove('show');ge=null;return}
+  if(ge&&e.key==='Enter'&&e.target.tagName==='INPUT'){e.preventDefault();saveGoal();return}
   if(!sh)return;const tag=e.target.tagName;
   if(e.key==='Escape'){closeSheet();return}
   if(e.key==='Enter'&&tag!=='TEXTAREA'){e.preventDefault();saveSheet();return}
