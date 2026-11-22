@@ -277,7 +277,7 @@ function renderTimeline(){
   $('#view').innerHTML=`
   <div class="head"><div><h1>Timeline</h1><p class="sub">Every entry, day by day. Swipe left on a phone to delete.</p></div>${monthNav()}</div>
   <div class="filters"><label class="search">${ico('search')}<input id="q" type="search" placeholder="Search payee, note, tag or amount" value="${esc(tl.q)}" aria-label="Search"></label>
-  <select id="fk" aria-label="Type">${opt([['out','Spent'],['in','Received'],['xfer','Transfers']],tl.k,'Any type')}</select>
+  <select id="fk" aria-label="Type">${opt([['out','Spent'],['in','Received'],...(allTx().some(t=>t.k==='xfer')?[['xfer','Transfers']]:[])],tl.k,'Any type')}</select>
   <select id="fc" aria-label="Category">${opt(S.meta.categories.map(c=>[c.id,c.name]),tl.c,'Category')}</select>
   <select id="fa" aria-label="Account">${opt(accs().map(a=>[a.id,a.name]),tl.acc,'Account')}</select></div>
   ${tl.day?`<button class="chip" data-act="clrDay">${esc(dayLabel(tl.day))} ${ico('x',14)}</button>`:''}
@@ -440,7 +440,7 @@ function renderGoals(){
       :a.lowConf?`<div class="gwarn">Based on only ${a.days} days, so treat this as a first estimate. It gets precise after a full month.</div>`:'';
     band=`<section class="card s12 gband"><div class="ch"><h3>Your average month</h3><small>${esc(a.label)}</small></div>
     <div class="sumrow g4"><div>Income<b>${money(a.I,{round:1})}</b></div><div>Spending<b>${money(a.E,{round:1})}</b></div><div>Left over<b class="${a.S<0?'neg':''}">${money(a.S,{round:1})}</b></div><div>Safe to save<b>${money(a.A,{round:1})}</b></div></div>
-    <p class="note">"Safe to save" keeps 10% of what's left over as a cushion for surprise costs. Transfers between your own accounts are ignored, and refunds count against spending.</p>${warn}</section>`}
+    <p class="note">"Safe to save" keeps 10% of what's left over as a cushion for surprise costs. Refunds count against spending.</p>${warn}</section>`}
   // last month's leftover
   let sur='';const lm=shiftM(curMonth(),-1),lt=monthTx(lm);
   if(gs.length&&lt.length){const left=sum(lt.filter(t=>t.k==='in'&&t.c!=='refund'))-sum(lt.filter(t=>t.k==='out'))+sum(lt.filter(t=>t.k==='in'&&t.c==='refund'));
@@ -614,7 +614,7 @@ function renderMore(){
     <div class="btns"><button class="btn" data-act="csv">Export CSV</button><button class="btn" data-act="json">Full backup (JSON)</button><button class="btn" data-act="import">Import CSV or backup</button>
     ${hasSample?`<button class="btn" data-act="unsample">Remove sample data</button>`:`<button class="btn" data-act="sample">Add sample data</button>`}
     <button class="btn danger" data-act="wipe">${wipeArm?'Tap again to delete everything':'Delete all my data'}</button></div>
-    <p class="note">CSV columns: date, type (spent / received / transfer), amount, category, account, to_account, note, tags. Imports skip rows you already have.</p>
+    <p class="note">CSV columns: date, type (spent / received), amount, category, account, note, tags. Imports skip rows you already have.</p>
     <textarea id="dlbox" class="inp" style="display:none;min-height:140px;padding:10px;font:13px/1.4 ui-monospace,monospace" readonly aria-label="Exported data"></textarea></section>
   </div>`;
 }
@@ -642,7 +642,7 @@ function drawSheet(){
   if(k!=='xfer'&&!list.some(c=>c.id===sh.c))sh.c=list[0]?.id;
   const chip=(a,attr,sel)=>`<button data-${attr}="${esc(a.id)}" class="${a.id===sel?'on':''}">${ico(a.type==='upi'?'upi':a.type,16)}${esc(a.name)}</button>`;
   $('#sheet').innerHTML=`<div class="grab"></div>
-  <div class="seg" role="tablist">${[['out','Spent'],['in','Received'],['xfer','Transfer']].map(([v,l])=>`<button role="tab" aria-selected="${v===k}" data-k="${v}" class="${v===k?'on':''}">${l}</button>`).join('')}</div>
+  <div class="seg" role="tablist" style="grid-template-columns:repeat(${sh.orig?.k==='xfer'?3:2},minmax(0,1fr))">${[['out','Spent'],['in','Received'],...(sh.orig?.k==='xfer'?[['xfer','Transfer']]:[])].map(([v,l])=>`<button role="tab" aria-selected="${v===k}" data-k="${v}" class="${v===k?'on':''}">${l}</button>`).join('')}</div>
   <div class="amtd" id="amtd" aria-live="polite"></div>
   ${k==='xfer'?`<div class="lbl">From</div><div class="chips">${accs().map(a=>chip(a,'acc',sh.acc)).join('')}</div><div class="lbl">To</div><div class="chips">${accs().map(a=>chip(a,'to',sh.to)).join('')}</div>`
   :`<div class="cats">${shown.map(c=>`<button data-cat="${esc(c.id)}" class="${c.id===sh.c?'on':''}" style="--c:${esc(c.color)}"><span class="ic" style="--c:${esc(c.color)}">${ico(c.icon,20)}</span>${esc(c.name)}</button>`).join('')}${list.length>8?`<button data-act="allCats" style="--c:var(--muted)"><span class="ic" style="--c:var(--muted)">${ico('other',20)}</span>${sh.all?'Less':'More'}</button>`:''}</div>
@@ -708,7 +708,7 @@ function showSignin(){
 /* ---------- sample data ---------- */
 function addSample(){
   let seed=20261121;const r=()=>(seed=(seed*1664525+1013904223)%4294967296)/4294967296;const pick=a=>a[Math.floor(r()*a.length)];
-  const need=[['bank','HDFC Bank','bank',4500000],['upi','Google Pay','upi',600000],['card','Credit card','card',0]];
+  const need=[['bank','HDFC Bank','bank',4500000],['upi','Google Pay','upi',3000000],['card','Credit card','card',0]];
   for(const [id,name,type,opening] of need)if(!acc(id))S.meta.accounts.push({id,name,type,opening});
   if(!acc('cash'))S.meta.accounts.unshift({id:'cash',name:'Cash',type:'cash',opening:200000});
   if(!Object.keys(S.meta.budgets).length&&!S.meta.budget)S.meta.budgets={food:900000,transport:350000,rent:2200000,bills:400000,shopping:500000,health:150000,fun:250000,other:100000};
@@ -717,12 +717,11 @@ function addSample(){
   for(let back=2;back>=0;back--){const y=now.getFullYear(),mo=now.getMonth()-back,dim=new Date(y,mo+1,0).getDate(),last=back?dim:now.getDate();
     for(let day=1;day<=last;day++){const d=iso(new Date(y,mo,day));
       if(day===1)add(d,'in',85000,'salary','bank','Salary');
-      if(day===2){add(d,'xfer',3000,null,'bank','ATM withdrawal','cash');add(d,'xfer',8000,null,'bank','Top up','upi')}
       if(day===3)add(d,'out',22000,'rent','bank','Rent');
       if(day===7)add(d,'out',799,'bills','card','Airtel postpaid');
       if(day===10)add(d,'out',1450+r()*700,'bills','upi','Electricity bill');
       if(day===12)add(d,'out',649,'fun','card','Netflix');
-      if(r()<.8)add(d,'out',pick([20,20,25,30]),'food','cash','Chai');
+      if(r()<.8)add(d,'out',pick([20,20,25,30]),'food','upi','Chai');
       if(r()<.42)add(d,'out',180+r()*420,'food','upi',pick(['Swiggy','Zomato','Udupi Grand','Chaayos']));
       if(r()<.5)add(d,'out',60+r()*240,'transport','upi',pick(['Uber','Ola','Namma Metro','Rapido']));
       if(r()<.11)add(d,'out',400+r()*2400,'shopping','card',pick(['Amazon','Myntra','DMart','Blinkit']));

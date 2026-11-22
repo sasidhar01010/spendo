@@ -12,7 +12,7 @@ Track every rupee you spend, on your phone and laptop. Sign in with Google and y
 - **Budgets:** a monthly limit per category, with alerts at 80% and 100%.
 - **Weekly review:** each week's everyday spending against your own usual week (average of up to 8 earlier weeks; rent, bills, health and monthly subscriptions left out). Shows what went up and why, what went well, day-by-day spending, unusual payments, new payees, month pace against budget, an 8-week trend and one concrete suggestion. A week in progress is compared with the same weekdays of earlier weeks.
 - **Goals planner:** add what you're saving for, the cost and a date. Spendo works out your real average month (income, spending, what's left), the monthly amount each goal needs, and whether it's on track. If it isn't, it suggests specific, realistic changes from your own habits (for example, "order delivery 3 fewer times a month; you average 6 at ₹348"), which you can turn into budgets with one tap. All on-device arithmetic, no AI.
-- **Accounts, categories, income and transfers.**
+- **Accounts, categories and income.**
 - **CSV import and export, plus a full JSON backup.**
 - **Google or GitHub sign-in**, private per user via row-level security.
 - **Installable and works offline:** entries made offline sync when you reconnect.
