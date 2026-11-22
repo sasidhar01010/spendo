@@ -380,7 +380,7 @@ function takeCuts(items,gap){const out=[];let left=gap;
   return{cuts:out,closed:left<=0,short:Math.max(0,left)}}
 
 function planGoals(){
-  const a=analyze();if(a.empty)return{a,plans:{}};
+  let a=analyze();if(a.empty)a={empty:true,I:0,E:0,S:0,A:0,cats:{},items:[]};
   const items=a.items.map(x=>({...x}));let free=a.A;const plans={};const now=new Date();now.setHours(0,0,0,0);
   const blocked=[];const sorted=goals().slice().sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
   for(const g of sorted){const rem=Math.max(0,g.target-(g.saved||0)),p={g,rem};plans[g.id]=p;
@@ -509,7 +509,8 @@ function renderMore(){
 function render(){
   const a=document.activeElement,aid=a&&a.id&&$('#view').contains(a)?a.id:null,sel=aid&&a.selectionStart;
   $$('[data-v]').forEach(el=>el.classList.toggle('on',el.dataset.v===view));
-  if(view==='home')renderHome();else if(view==='timeline')renderTimeline();else if(view==='budgets')renderBudgets();else if(view==='goals')renderGoals();else renderMore();
+  try{if(view==='home')renderHome();else if(view==='timeline')renderTimeline();else if(view==='budgets')renderBudgets();else if(view==='goals')renderGoals();else renderMore()}
+  catch(e){console.error(e);$('#view').innerHTML=`<div class="card"><h2>Something went wrong on this screen</h2><p class="note">Your entries are safe. Try another tab, or reload. If it keeps happening, share this message: <code>${esc(String(e&&e.message||e))}</code></p></div>`}
   if(aid){const n=document.getElementById(aid);if(n){n.focus();try{if(sel!=null)n.setSelectionRange(sel,sel)}catch(e){}}}
 }
 
