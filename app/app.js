@@ -178,7 +178,7 @@ function usage(kind){const n={};for(const t of allTx())if(t.k===kind&&t.c)n[t.c]
 /* ---------- view state ---------- */
 let view='home',vm=curMonth();
 const tl={q:'',k:'',c:'',acc:'',day:''};
-function route(){const h=location.hash.slice(1);view=['home','timeline','budgets','goals','more'].includes(h)?h:'home';render();window.scrollTo(0,0)}
+function route(){const h=location.hash.slice(1);view=['home','timeline','budgets','goals','review','more'].includes(h)?h:'home';render();window.scrollTo(0,0)}
 window.addEventListener('hashchange',route);
 
 function monthNav(){const nx=vm>=curMonth();return `<div class="mnav"><button class="ib" data-act="prevM" aria-label="Previous month">${ico('chevL')}</button><b>${mName(vm)}</b><button class="ib" data-act="nextM" aria-label="Next month" ${nx?'disabled':''}>${ico('chevR')}</button></div>`}
@@ -236,7 +236,8 @@ function renderHome(){
   <div class="grid">
     <section class="hero s12" aria-label="Today"><div style="position:relative;z-index:1">${heroL}${trio}</div>${ring}</section>
     <section class="s12" aria-label="Accounts"><div class="strip">${strip}</div></section>
-    ${homeGoals()}
+    ${safe(homeReview)}
+    ${safe(homeGoals)}
     <section class="card s8"><div class="ch"><h3>Daily spend, last 30 days</h3><div class="keys"><span><i style="background:var(--brick)"></i>Each day</span><span><i style="background:var(--ink)"></i>7-day average</span><span><i style="background:var(--line)"></i>30 days before</span></div></div><div class="fig" id="trend"><svg aria-label="Daily spend chart"></svg><div class="tip" id="tip"></div></div></section>
     <section class="card s4"><div class="ch"><h3>Where it went</h3></div>${spent?`<div class="donut"><svg viewBox="0 0 120 120" role="img" aria-label="Spending by category"><circle cx="60" cy="60" r="${dr}" fill="none" stroke="var(--soft)" stroke-width="18"/>${arcs}<text x="60" y="58" text-anchor="middle" font-size="15" font-weight="800" fill="currentColor">${cmp(spent)}</text><text x="60" y="74" text-anchor="middle" font-size="9" fill="var(--muted)">spent</text></svg><ul class="leg">${leg}</ul></div>`:`<div class="empty"><b>Nothing spent yet</b>Your categories will appear here.</div>`}</section>
     <section class="card s6"><div class="ch"><h3>Spending calendar</h3><small>Darker means more spent · tap a day</small></div><div class="hm">${hm}</div></section>
@@ -475,6 +476,118 @@ function applyGoal(id){const p=lastPlan.plans[id];if(!p||!p.cuts)return;const by
   for(const [c,cut] of Object.entries(by)){const v=floorTo(lastPlan.a.cats[c]-cut,10000);if(v>0){S.meta.budgets[c]=v;names.push(`${cat(c)?.name} ${money(v,{round:1})}`)}}
   touch();render();snack('Budgets set: '+names.join(', '),'',()=>{S.meta.budgets=prev;S.meta.budget=prevAll;touch();render()})}
 
+/* ---------- weekly review ---------- */
+// Compares "everyday spending" (everything except rent, bills, health and monthly subscriptions) week by week.
+// In-progress weeks are compared with the same weekdays of earlier weeks, so the pace is fair.
+const addD=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return iso(d)};
+const dayGap=(a,b)=>Math.round((pd(a)-pd(b))/864e5);
+const monOf=s=>addD(s,-((pd(s).getDay()+6)%7));
+const DOW=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const isDel=t=>t.c==='food'&&RX_DELIVERY.test(t.m||''),isCab=t=>t.c==='transport'&&RX_CAB.test(t.m||'');
+const weekLabel=ws=>{const e=addD(ws,6);return ws.slice(0,7)===e.slice(0,7)?`${+ws.slice(8)}–${shortD(e)}`:`${shortD(ws)} – ${shortD(e)}`};
+const firstDate=()=>allTx().reduce((m,t)=>!m||t.d<m?t.d:m,'');
+let rvWeek=null,rvSubs=null;
+// payees charged once a month for a near-identical amount in 2+ months: treated like bills
+function findSubs(){const by={};for(const t of allTx()){if(t.k!=='out'||!t.m||FIXED_CATS.has(t.c))continue;const k=t.m.toLowerCase();((by[k]=by[k]||{})[t.d.slice(0,7)]=by[k][t.d.slice(0,7)]||[]).push(t.a)}
+  const out={};for(const [k,m] of Object.entries(by)){const v=Object.values(m);if(v.length>=2&&v.every(x=>x.length===1)){const a=v.map(x=>x[0]),avg=a.reduce((x,y)=>x+y,0)/a.length;if(a.every(x=>Math.abs(x-avg)<=avg*.05))out[k]=avg}}return out}
+const isFixedTx=t=>FIXED_CATS.has(t.c)||(rvSubs&&t.m&&rvSubs[t.m.toLowerCase()]!=null);
+function weekStats(ws,n){const end=addD(ws,n-1),tx=[];
+  for(const mk of new Set([ws.slice(0,7),end.slice(0,7)]))for(const t of monthTx(mk))if(t.d>=ws&&t.d<=end)tx.push(t);
+  const ev=tx.filter(t=>t.k==='out'&&!isFixedTx(t)),cats={},cnt={},days=Array(7).fill(0);
+  for(const t of ev){const c=t.c||'other';cats[c]=(cats[c]||0)+t.a;cnt[c]=(cnt[c]||0)+1;days[dayGap(t.d,ws)]+=t.a}
+  return{ws,ev,total:sum(ev),fixed:sum(tx.filter(t=>t.k==='out'&&isFixedTx(t))),recv:sum(tx.filter(t=>t.k==='in')),cats,cnt,days,del:ev.filter(isDel),cab:ev.filter(isCab)}}
+function review(ws){
+  const td=todayISO(),cur=monOf(td),isCur=ws===cur,n=isCur?dayGap(td,ws)+1:7,left=7-n,first=firstDate(),prog=isCur&&n<7;rvSubs=findSubs();
+  const W=weekStats(ws,n),base=[],full=[];
+  for(let i=1;i<=8;i++){const b=addD(ws,-7*i);if(b<first)break;base.push(weekStats(b,n));full.push(isCur?weekStats(b,7):base[base.length-1])}
+  const nb=base.length,avg=f=>nb?base.reduce((s,b)=>s+f(b),0)/nb:0,ok=nb>=2;
+  const U=avg(b=>b.total),U7=nb?full.reduce((s,b)=>s+b.total,0)/nb:0,pct=U?(W.total-U)/U:0,cn=c=>cat(c)?.name||'Other';
+  const R={ws,n,left,isCur,prog,W,nb,ok,U,U7,pct,cn,moves:[],unusual:[],newP:[]};
+  if(ok){
+    for(const c of new Set([...Object.keys(W.cats),...base.flatMap(b=>Object.keys(b.cats))])){
+      const a=W.cats[c]||0,u=avg(b=>b.cats[c]||0),d=a-u;if(Math.abs(d)<Math.max(15000,u*.2))continue;
+      const k=W.cnt[c]||0,uk=avg(b=>b.cnt[c]||0),by={};for(const t of W.ev)if((t.c||'other')===c&&t.m)by[t.m]=(by[t.m]||0)+t.a;
+      const top=Object.entries(by).sort((x,y)=>y[1]-x[1])[0];let why;
+      const grp=c==='food'?['del','delivery order']:c==='transport'?['cab','cab ride']:null,gk=grp?W[grp[0]].length:0,gu=grp?avg(b=>b[grp[0]].length):0;
+      if(d>0){
+        if(uk<.5)why=`You don't usually spend here.`;
+        else if(grp&&gk>=gu+1)why=`${gk} ${grp[1]}${gk>1?'s':''} against your usual ${Math.round(gu)}.`;
+        else if(k>=uk+1)why=`${k} payment${k>1?'s':''} against your usual ${Math.round(uk)}.`;
+        else if(k&&uk>=.5)why=`Bigger payments than usual: ${money(a/k,{round:1})} each against ${money(u/uk,{round:1})}.`;
+        else why=`You don't usually spend here.`;
+        if(top)why+=` ${top[1]>=a*.6?'Mostly':'Biggest:'} ${top[0]} (${money(top[1],{round:1})}).`}
+      else why=a===0?`Nothing spent here ${prog?'so far':'this week'}. You usually spend ${money(u,{round:1})}.`
+        :grp&&gk<=gu-1?`${gk||'No'} ${grp[1]}${gk===1?'':'s'} against your usual ${Math.round(gu)}.`
+        :k<=uk-1?`${k} payment${k>1?'s':''} against your usual ${Math.round(uk)}.`:`Smaller payments than usual.`;
+      R.moves.push({c,a,u,d,why})}
+    R.moves.sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
+    // unusual single payments: 3x the usual size for that category
+    const prior=allTx().filter(t=>t.d<ws&&t.k==='out'&&!isFixedTx(t));
+    for(const t of W.ev){const h=prior.filter(p=>p.c===t.c&&p.d>=addD(ws,-90)).map(p=>p.a).sort((x,y)=>x-y);
+      if(h.length>=8){const med=h[Math.floor(h.length*.75)];if(t.a>=med*2.5&&t.a>=50000)R.unusual.push({t,med})}}
+    R.unusual.sort((x,y)=>y.t.a-x.t.a);R.unusual=R.unusual.slice(0,2);
+    if(prior.length>=15){const seen=new Set(prior.map(p=>(p.m||'').toLowerCase())),np={};
+      for(const t of W.ev){const k=(t.m||'').trim();if(k&&!seen.has(k.toLowerCase()))np[k]=(np[k]||0)+t.a}
+      R.newP=Object.entries(np).sort((x,y)=>y[1]-x[1]).slice(0,3)}
+    R.limit=U7/7;R.under=W.days.slice(0,n).filter(v=>v<=R.limit).length}
+  R.noSpend=W.days.slice(0,n).filter(v=>!v).length;
+  const mx=Math.max(...W.days);R.topDay=mx>0?{i:W.days.indexOf(mx),a:mx}:null;
+  R.big=W.ev.slice().sort((x,y)=>y.a-x.a)[0]||null;
+  // month pace against budget (current week only)
+  const bud=totalBudget();if(isCur&&bud){const cm=curMonth(),sp=sum(monthTx(cm).filter(t=>t.k==='out')),dn=new Date().getDate(),dim=daysIn(cm);R.month={sp,bud,share:dn/dim,proj:sp/dn*dim}}
+  // one suggestion
+  if(ok){const ups=R.moves.filter(m=>m.d>0),dk=W.del.length,du=Math.round(avg(b=>b.del.length)),dt=dk?sum(W.del)/dk:0;
+    const goal=goals().filter(g=>(g.saved||0)<g.target).sort((x,y)=>x.date<y.date?-1:1)[0];
+    if(prog){const room=U7-W.total;
+      R.tip=room>0?{t:`Stay near ${money(floorTo(room/left,1000),{round:1})} a day for the next ${left} day${left>1?'s':''}`,w:`That lands this week on your usual ${money(U7,{round:1})}. You've spent ${money(W.total,{round:1})} in ${n} day${n>1?'s':''}.`}
+        :{t:`Keep the next ${left} day${left>1?'s':''} to essentials`,w:`You're at ${money(W.total,{round:1})}, already past your usual full week of ${money(U7,{round:1})}.`}}
+    else if(pct<=-.1&&U-W.total>=20000)R.tip=goal?{t:`Move ${money(floorTo(U-W.total,10000),{round:1})} into ${goal.name}`,w:`That's what you spent below your usual week. Setting it aside now makes the saving real.`,goal:goal.id,amt:floorTo(U-W.total,10000)}
+        :{t:`Do the same again next week`,w:`A month of weeks like this leaves you about ${money((U-W.total)*4.35,{round:1})} better off.`};
+    else if(dk>=du+2)R.tip={t:`Keep food delivery to ${Math.max(1,du)} order${du>1?'s':''} next week`,w:`You ordered ${dk} times against your usual ${du}. At ${money(dt,{round:1})} an order, that saves about ${money((dk-Math.max(1,du))*dt,{round:1})}.`};
+    else if(ups[0]&&pct>.1)R.tip={t:`Bring ${cn(ups[0].c).toLowerCase()} back to ${money(ups[0].u,{round:1})} next week`,w:`It was ${money(ups[0].a,{round:1})} this week, ${money(ups[0].d,{round:1})} above usual. It's the biggest single reason this week ran high.`};
+    else R.tip={t:`Steady week, nothing to fix`,w:`Everyday spending was within 10% of your usual ${money(U,{round:1})}.`}}
+  return R}
+function rvVerdict(R){const W=R.W,P=R.prog;
+  if(!R.ok)return{tone:'',h:P?'This week so far':'Your week',s:`Comparisons start once Spendo has 2 earlier full weeks of your entries. It has ${R.nb} so far.`};
+  const d=Math.abs(W.total-R.U),p=Math.round(Math.abs(R.pct)*100),vs=P?`what you usually spend by ${DOW[R.n-1]}`:'your usual week';
+  if(R.pct<=-.1)return{tone:'good',h:P?'Lighter than usual so far':'A lighter week',s:`${money(d,{round:1})} (${p}%) below ${vs}, ${money(R.U,{round:1})}.`};
+  if(R.pct>=.1)return{tone:'bad',h:P?'Running higher than usual':'A heavier week',s:`${money(d,{round:1})} (${p}%) above ${vs}, ${money(R.U,{round:1})}.`};
+  return{tone:'',h:P?'On your usual pace':'A typical week',s:`Within ${Math.max(1,p)}% of ${vs}, ${money(R.U,{round:1})}.`}}
+function defaultWeek(){const td=todayISO(),cur=monOf(td),first=firstDate();return dayGap(td,cur)>=2||addD(cur,-1)<first?cur:addD(cur,-7)}
+function renderReview(){
+  if(!allTx().length){$('#view').innerHTML=`<div class="head"><div><h1>Weekly review</h1></div></div><div class="card"><div class="empty"><b>Nothing to review yet</b>Add your spending for a few days and your first review appears here.</div></div>`;return}
+  const cur=monOf(todayISO()),minW=monOf(firstDate());if(!rvWeek||rvWeek>cur||rvWeek<minW)rvWeek=defaultWeek();
+  const R=review(rvWeek),W=R.W,V=rvVerdict(R),ups=R.moves.filter(m=>m.d>0).slice(0,3),downs=R.moves.filter(m=>m.d<0).slice(0,3);
+  const mv=(m,up)=>`<li><span class="ic" style="--c:${esc(cat(m.c)?.color||'#8a8178')}">${ico(cat(m.c)?.icon)}</span><div><b>${esc(R.cn(m.c))}: ${money(m.a,{round:1})} <span class="${up?'up':'dn'}">${up?'▲':'▼'} ${money(Math.abs(m.d),{round:1})}</span></b><small>${esc(m.why)}</small></div></li>`;
+  const look=[];
+  for(const u of R.unusual)look.push(`<li><b>${esc(u.t.m||R.cn(u.t.c))} · ${money(u.t.a,{round:1})}</b><small>${esc(dayLabel(u.t.d))}. Much larger than your usual ${esc(R.cn(u.t.c).toLowerCase())} payments: three in four are under ${money(u.med,{round:1})}.</small></li>`);
+  if(R.newP.length)look.push(`<li><b>New payee${R.newP.length>1?'s':''}: ${R.newP.map(([n,a])=>`${esc(n)} (${money(a,{round:1})})`).join(', ')}</b><small>You hadn't paid ${R.newP.length>1?'these':'this one'} before. Worth a glance if any is a new subscription.</small></li>`);
+  if(R.month){const m=R.month,over=m.proj>m.bud;look.push(`<li><b>Month so far: ${money(m.sp,{round:1})} of ${money(m.bud,{round:1})} budget (${Math.round(m.sp/m.bud*100)}%)</b><small>${Math.round(m.share*100)}% of the month has passed. At this pace you finish about ${money(Math.abs(m.proj-m.bud),{round:1})} ${over?'over':'under'} budget.</small></li>`)}
+  if(W.fixed)look.push(`<li><b>Rent, bills, health and subscriptions: ${money(W.fixed,{round:1})}</b><small>Kept out of the comparison, because they land in one week and would distort it.</small></li>`);
+  const dmax=Math.max(1,...W.days,R.limit||0);
+  const days=W.days.map((v,i)=>{const d=addD(R.ws,i),fut=i>=R.n;return `<div class="dr${fut?' fut':''}"><span>${DOW[i].slice(0,3)} ${+d.slice(8)}</span><div class="dtk">${fut?'':`<i class="${R.limit&&v>R.limit?'hi':''}" style="width:${(v/dmax*100).toFixed(1)}%"></i>`}${R.limit?`<u style="left:${(R.limit/dmax*100).toFixed(1)}%"></u>`:''}</div><b>${fut?'':v?money(v,{round:1}):'—'}</b></div>`}).join('');
+  const tr=[];for(let i=7;i>=0;i--){const s=addD(cur,-7*i);if(s>=minW)tr.push({s,v:weekStats(s,s===cur?dayGap(todayISO(),cur)+1:7).total})}
+  const tmax=Math.max(1,...tr.map(x=>x.v));
+  const cats=Object.entries(W.cats).sort((a,b)=>b[1]-a[1]);
+  const tiles=[`<div>Everyday spending<b>${money(W.total,{round:1})}</b></div>`,R.ok?`<div>${R.prog?'Usual by now':'Usual week'}<b>${money(R.U,{round:1})}</b></div>`:'',R.ok?`<div>Days at or under ${money(R.limit,{round:1})}<b>${R.under} of ${R.n}</b></div>`:'',`<div>No-spend days<b>${R.noSpend}</b></div>`,W.recv?`<div>Received<b>${money(W.recv,{round:1})}</b></div>`:''].join('');
+  $('#view').innerHTML=`
+  <div class="head"><div><h1>Weekly review</h1><p class="sub">Your everyday spending against your own usual week. Rent, bills, health and subscriptions are left out so one big payment doesn't skew it.</p></div>
+    <div class="mnav"><button class="ib" data-act="rvPrev" aria-label="Previous week" ${R.ws<=minW?'disabled':''}>${ico('chevL')}</button><b>${esc(weekLabel(R.ws))}</b><button class="ib" data-act="rvNext" aria-label="Next week" ${R.ws>=cur?'disabled':''}>${ico('chevR')}</button></div></div>
+  <div class="grid">
+    <section class="rvh s12 ${V.tone}"><div class="lab">${R.prog?`Monday to today · day ${R.n} of 7`:R.isCur?'This week':'Week of '+esc(weekLabel(R.ws))}</div><h2>${V.h}</h2><div class="big">${money(W.total,{round:1})}</div><p>${V.s}</p></section>
+    <section class="card s12"><div class="sumrow rvt">${tiles}</div></section>
+    ${R.tip?`<section class="card s12 rtip"><small>${R.prog?'For the rest of this week':'For next week'}</small><h2>${esc(R.tip.t)}</h2><p class="gl">${esc(R.tip.w)}</p>${R.tip.goal?`<div class="btns"><button class="btn dark" data-act="rvSave" data-id="${esc(R.tip.goal)}" data-v="${R.tip.amt}">I've set it aside</button></div>`:''}</section>`:''}
+    ${R.ok?`<section class="card s6"><div class="ch"><h3>What went up</h3></div>${ups.length?`<ul class="rvl">${ups.map(m=>mv(m,1)).join('')}</ul>`:`<p class="note">Nothing ran noticeably above your usual. </p>`}</section>
+    <section class="card s6"><div class="ch"><h3>What went well</h3></div>${downs.length?`<ul class="rvl">${downs.map(m=>mv(m,0)).join('')}</ul>`:`<p class="note">No category came in noticeably below your usual.</p>`}</section>`
+    :`<section class="card s12"><div class="ch"><h3>Where it went</h3></div>${cats.length?`<ul class="merch">${cats.map(([c,v])=>`<li><span>${esc(R.cn(c))} <small>× ${W.cnt[c]}</small></span><b>${money(v,{round:1})}</b><div class="track"><div class="fill" style="width:${(v/cats[0][1]*100).toFixed(1)}%"></div></div></li>`).join('')}</ul>`:`<p class="note">No everyday spending logged this week.</p>`}</section>`}
+    <section class="card s6"><div class="ch"><h3>Day by day</h3>${R.limit?`<small>Line: your usual ${money(R.limit,{round:1})} a day</small>`:''}</div><div class="days">${days}</div>${R.topDay?`<p class="note" style="margin-top:12px">${DOW[R.topDay.i]} was the biggest day at ${money(R.topDay.a,{round:1})}, ${Math.round(R.topDay.a/W.total*100)}% of the week.${R.big?` Largest payment: ${esc(R.big.m||R.cn(R.big.c))}, ${money(R.big.a,{round:1})}.`:''}</p>`:''}</section>
+    <section class="card s6"><div class="ch"><h3>Worth a look</h3></div>${look.length?`<ul class="rvl plain">${look.join('')}</ul>`:`<p class="note">Nothing unusual: no outsized payments and no new payees.</p>`}</section>
+    <section class="card s12"><div class="ch"><h3>Last ${tr.length} week${tr.length>1?'s':''}</h3><small>Everyday spending · tap a week to open it</small></div><div class="wk">${tr.map(x=>`<button data-rvw="${x.s}" class="${x.s===R.ws?'on':''}" aria-label="Week of ${esc(weekLabel(x.s))}: ${esc(money(x.v,{round:1}))}"><b>${cmp(x.v)}</b><i style="height:${Math.max(3,x.v/tmax*100).toFixed(1)}%"></i><span>${+x.s.slice(8)} ${pd(x.s).toLocaleDateString('en-IN',{month:'short'})}</span></button>`).join('')}</div></section>
+  </div>`}
+function homeReview(){if(!allTx().length)return'';const R=review(defaultWeek()),V=rvVerdict(R);
+  return `<section class="card s12 rvhome"><div class="ch"><h3>${R.prog?'This week so far':R.isCur?'This week':'Last week'}</h3><a href="#review">Open review</a></div><div class="rvhb"><div><b class="rvn ${V.tone}">${money(R.W.total,{round:1})}</b><small>${V.h}. ${V.s}</small></div>${R.tip?`<div class="rvtip"><small>${R.prog?'For the rest of this week':'For next week'}</small><b>${esc(R.tip.t)}</b></div>`:''}</div></section>`}
+const safe=f=>{try{return f()}catch(e){console.error(e);return''}};
+
 /* ---------- more ---------- */
 let wipeArm=false,dl=null;
 function renderMore(){
@@ -509,7 +622,7 @@ function renderMore(){
 function render(){
   const a=document.activeElement,aid=a&&a.id&&$('#view').contains(a)?a.id:null,sel=aid&&a.selectionStart;
   $$('[data-v]').forEach(el=>el.classList.toggle('on',el.dataset.v===view));
-  try{if(view==='home')renderHome();else if(view==='timeline')renderTimeline();else if(view==='budgets')renderBudgets();else if(view==='goals')renderGoals();else renderMore()}
+  try{if(view==='home')renderHome();else if(view==='timeline')renderTimeline();else if(view==='budgets')renderBudgets();else if(view==='goals')renderGoals();else if(view==='review')renderReview();else renderMore()}
   catch(e){console.error(e);$('#view').innerHTML=`<div class="card"><h2>Something went wrong on this screen</h2><p class="note">Your entries are safe. Try another tab, or reload. If it keeps happening, share this message: <code>${esc(String(e&&e.message||e))}</code></p></div>`}
   if(aid){const n=document.getElementById(aid);if(n){n.focus();try{if(sel!=null)n.setSelectionRange(sel,sel)}catch(e){}}}
 }
@@ -680,6 +793,7 @@ document.addEventListener('click',e=>{
     if(ac){sh.acc=ac.dataset.acc;$$('#sheet [data-acc]').forEach(b=>b.classList.toggle('on',b===ac));return}
     if(to){sh.to=to.dataset.to;$$('#sheet [data-to]').forEach(b=>b.classList.toggle('on',b===to));return}
     if(ky){key(ky.dataset.key);return}}
+  const rw=t.closest('[data-rvw]');if(rw){rvWeek=rw.dataset.rvw;render();window.scrollTo(0,0);return}
   const hd=t.closest('[data-day]');if(hd){tl.day=hd.dataset.day;tl.c='';tl.k='';location.hash='timeline';return}
   const fc=t.closest('[data-fcat]');if(fc){tl.c=fc.dataset.fcat;tl.day='';location.hash='timeline';return}
   if(!act)return;
@@ -687,6 +801,9 @@ document.addEventListener('click',e=>{
   switch(act){
     case 'add':openSheet();break;
     case 'gnew':openGoal();break;
+    case 'rvPrev':rvWeek=addD(rvWeek,-7);render();break;
+    case 'rvNext':rvWeek=addD(rvWeek,7);render();break;
+    case 'rvSave':{const g=goalById(id),v=+A.dataset.v;if(g&&v){g.saved=(g.saved||0)+v;touch();render();snack(`Added ${money(v)} to ${g.name}`,'',()=>{g.saved-=v;touch();render()})}break}
     case 'gidea':openGoal(null,{n:A.dataset.n,t:+A.dataset.t,mo:+A.dataset.mo});break;
     case 'gedit':openGoal(goalById(id));break;
     case 'gclose':$('#gov').classList.remove('show');ge=null;break;
