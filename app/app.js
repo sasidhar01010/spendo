@@ -85,8 +85,8 @@ async function flush(){
       for(let i=0;i<up.length;i+=500){const ch=up.slice(i,i+500);const{error}=await sb.from(t).upsert(ch.map(k=>a[k]),{onConflict:PK[t]});if(error)throw error;ch.forEach(k=>{b[k]=a[k]});saveBase()}}
     for(const t of [...TABLES].reverse()){if(t==='profiles')continue;const a=cur[t],b=base[t];const del=Object.keys(b).filter(k=>!(k in a)),key=t==='budgets'?'category_id':'id';
       for(let i=0;i<del.length;i+=200){const ch=del.slice(i,i+200);const{error}=await sb.from(t).delete().eq('user_id',uid).in(key,ch);if(error)throw error;ch.forEach(k=>{delete b[k]});saveBase()}}
-    cloud='synced'}
-  catch(e){console.warn('Sync failed',e);cloud=navigator.onLine?'error':'offline';clearTimeout(flushT);flushT=setTimeout(flush,15000)}
+    cloud='synced';lastErr=''}
+  catch(e){console.warn('Sync failed',e);noteErr(e);cloud=navigator.onLine?'error':'offline';clearTimeout(flushT);flushT=setTimeout(flush,15000)}
   finally{flushing=false;setSync();if(again){again=false;flush()}}}
 async function fetchAll(t){let out=[],from=0;for(;;){let q=sb.from(t).select('*').range(from,from+999);q=t==='profiles'?q.eq('id',uid):q.eq('user_id',uid);
   const{data,error}=await q;if(error)throw error;out=out.concat(data);if(data.length<1000)return out;from+=1000}}
@@ -107,7 +107,9 @@ async function pull(adopt){
     base={uid,...srv};saveBase();saveLocal();
     if(adopt&&pending())await flush();else cloud='synced';setSync();
     if(changed&&booted)render()}
-  catch(e){console.warn('Load failed',e);cloud=navigator.onLine?'error':'offline';setSync()}}
+  catch(e){console.warn('Load failed',e);noteErr(e);cloud=navigator.onLine?'error':'offline';setSync();if(booted)render()}}
+let lastErr='';
+function noteErr(e){lastErr=[e?.code,e?.message||String(e),e?.hint].filter(Boolean).join(' · ').slice(0,300);if(cloud!=='error')snack('Sync problem: '+(e?.message||'unknown error'),'bad')}
 function setSync(){
   const M={local:['off','This device only'],signin:['off','Not signed in'],saving:['busy','Saving…'],synced:['ok','Synced'],offline:['off','Offline · saved here'],error:['busy','Sync problem · retrying'],connecting:['busy','Connecting…']};
   const [cls,txt]=M[cloud]||M.local;
@@ -135,8 +137,11 @@ async function initAuth(){
     sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_OUT')return;if((s?.user?.id||null)!==uid)handleSession(s);else session=s});
   }catch(e){console.warn(e);cloud='local';boot()}}
 async function signIn(provider){if(!sb){snack('Sign-in is not set up yet. Add your Supabase keys to config.js.','warn');return}
-  const{error}=await sb.auth.signInWithOAuth({provider,options:{redirectTo:location.origin+location.pathname}});if(error)snack(error.message,'bad')}
-async function signOut(){if(pending())await flush();try{await sb.auth.signOut()}catch(e){}
+  const{error}=await sb.auth.signInWithOAuth({provider,options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:'select_account'}}});if(error)snack(error.message,'bad')}
+let soArm=false;
+async function signOut(){if(pending())await flush();
+  if(pending()&&!soArm){soArm=true;setTimeout(()=>soArm=false,6000);snack("Some entries haven't synced yet. Signing out now would delete them from this device. Tap Sign out again to do it anyway.",'bad');return}
+  try{await sb.auth.signOut()}catch(e){}
   try{localStorage.removeItem(LS_KEY);localStorage.removeItem(LS_BASE);setGuest(false)}catch(e){}location.replace(location.pathname)}
 addEventListener('online',()=>{if(uid){cloud='saving';flush()}});
 addEventListener('offline',()=>{if(uid){cloud='offline';setSync()}});
@@ -304,7 +309,7 @@ function renderMore(){
   <section class="card s5 sect"><h2>You</h2>
     <label class="f">Your name<input class="inp" id="nm" value="${esc(S.meta.name)}" placeholder="Optional" autocomplete="given-name"></label>
     <label class="f">Currency<select id="cur">${CURS.map(c=>`<option ${c===S.meta.currency?'selected':''}>${c}</option>`).join('')}</select></label>
-    ${uid?`<p class="note">Signed in as <b>${esc(session?.user?.email||'you')}</b>. Your entries are private to you and sync to every device where you sign in.</p><div class="btns"><button class="btn" data-act="signout">Sign out</button></div>`
+    ${uid?`<p class="note">Signed in as <b>${esc(session?.user?.email||'you')}</b>. Your entries are private to you and sync to every device where you sign in.</p>${lastErr?`<p class="note" style="color:var(--brick)"><b>Sync problem:</b> ${esc(lastErr)}</p>`:''}<div class="btns"><button class="btn" data-act="signout">Sign out</button></div>`
       :sb?`<p class="note">You're using Spendo on this device only. Sign in to back up your entries and use them on your phone and laptop. Entries already here come with you.</p><div class="btns"><button class="btn dark" data-act="google">Continue with Google</button>${CFG.githubLogin?'<button class="btn" data-act="github">Continue with GitHub</button>':''}</div>`
       :`<p class="note">Sync isn't set up yet, so entries are saved in this browser only. Add your Supabase keys to <code>app/config.js</code> to turn on sign-in.</p>`}</section>
   <section class="card s7 sect"><h2>Use it on your phone and laptop</h2>
@@ -551,5 +556,6 @@ document.addEventListener('change',async e=>{const t=e.target;const num=v=>{cons
   else if(t.id==='file'){const f=t.files[0];t.value='';if(!f)return;const text=await f.text();if(/\.json$/i.test(f.name)||text.trim().startsWith('{'))importJSON(text);else importCSV(text)}});
 
 render();setSync();initAuth();
+for(const el of [$('#sync1'),$('#sync2')])if(el){el.style.cursor='pointer';el.title='Sync details';el.addEventListener('click',()=>{location.hash='more'})}
 if('serviceWorker' in navigator&&location.protocol==='https:')addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }

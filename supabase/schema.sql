@@ -163,3 +163,15 @@ insert into public.heartbeat (id) values (1) on conflict do nothing;
 alter table public.heartbeat enable row level security;
 drop policy if exists "anyone can read" on public.heartbeat;
 create policy "anyone can read" on public.heartbeat for select to anon, authenticated using (true);
+
+-- ---------- Data API access ----------
+-- Newer Supabase projects may not expose new tables automatically.
+-- These grants let signed-in users reach their tables through the API;
+-- the row-level security policies above still limit each user to their own rows.
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on
+  public.profiles, public.accounts, public.categories, public.budgets, public.transactions,
+  public.recurring_rules, public.category_rules, public.import_tokens, public.import_log, public.goals
+  to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant select on public.heartbeat to anon, authenticated;
