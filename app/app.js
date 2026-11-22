@@ -491,7 +491,7 @@ function renderMore(){
       :`<p class="note">Sync isn't set up yet, so entries are saved in this browser only. Add your Supabase keys to <code>app/config.js</code> to turn on sign-in.</p>`}</section>
   <section class="card s7 sect"><h2>Use it on your phone and laptop</h2>
     <ol class="steps"><li>Open <b>${esc(location.host+location.pathname)}</b> on your phone and sign in with the same Google account.</li><li>On iPhone, tap Share then <b>Add to Home Screen</b>. On Android Chrome, tap ⋮ then <b>Install app</b>. It opens full screen and works offline.</li><li>On your laptop, Chrome and Edge show an install icon in the address bar.</li></ol>
-    <p class="note">Entries you add offline save on the device and sync when you're back online.</p></section>
+    <p class="note">Entries you add offline save on the device and sync when you're back online.</p><p class="note">Version ${esc((document.querySelector('meta[name=build]')?.content||'').replace('__BUILD__','local'))}</p></section>
   <section class="card s12 sect"><div class="ch" style="margin:0"><h2>Accounts</h2><button class="btn" data-act="addAcc">+ Add account</button></div>
     <div>${accs().map(a=>{const b=balance(a.id);return `<div class="row"><span class="ic" style="--c:var(--ink)">${ico(a.type==='upi'?'upi':a.type)}</span><input class="inp" data-accf="name" data-id="${esc(a.id)}" value="${esc(a.name)}" aria-label="Account name"><select data-accf="type" data-id="${esc(a.id)}" aria-label="Account type">${Object.entries(ACC_TYPES).map(([k,l])=>`<option value="${k}" ${k===a.type?'selected':''}>${l}</option>`).join('')}</select><div class="money"><span>${esc(sym())}</span><input class="inp" data-accf="opening" data-id="${esc(a.id)}" inputmode="decimal" value="${(+a.opening||0)/100}" aria-label="Starting balance"></div><span class="bal" title="Current balance">${money(b,{round:1})} ${used(a.id)||accs().length<2?'':`<button class="ib" data-act="delAcc" data-id="${esc(a.id)}" aria-label="Delete ${esc(a.name)}">${ico('trash',18)}</button>`}</span></div>`}).join('')}</div>
     <p class="note">The money field is the starting balance. The bold figure is the balance now.</p></section>
@@ -750,5 +750,7 @@ document.addEventListener('change',async e=>{const t=e.target;const num=v=>{cons
 
 render();setSync();initAuth();
 for(const el of [$('#sync1'),$('#sync2')])if(el){el.style.cursor='pointer';el.title='Sync details';el.addEventListener('click',()=>{location.hash='more'})}
-if('serviceWorker' in navigator&&location.protocol==='https:')addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if('serviceWorker' in navigator&&location.protocol==='https:'){const had=!!navigator.serviceWorker.controller;let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!reloaded&&!sh&&!ge){reloaded=true;location.reload()}});
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}))}
 }

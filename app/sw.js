@@ -18,7 +18,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin === self.location.origin) {
     // Network first so updates show at once; cache when offline.
-    e.respondWith(fetch(req).then(res => {
+    // 'no-cache' makes the browser re-check with the server instead of trusting a stale copy.
+    e.respondWith(fetch(req.url, { cache: 'no-cache' }).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('./index.html'))));

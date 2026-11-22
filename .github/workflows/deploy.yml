@@ -28,8 +28,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Stamp build version into the service worker
-        run: sed -i "s/__BUILD__/${GITHUB_SHA::7}/" app/sw.js
+      - name: Stamp build version into the page and service worker
+        run: sed -i "s/__BUILD__/${GITHUB_SHA::7}/g" app/sw.js app/index.html
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
