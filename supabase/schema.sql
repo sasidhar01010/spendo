@@ -130,6 +130,9 @@ create table if not exists public.goals (
   primary key (user_id, id)
 );
 
+-- Plan details per goal: savings history, start date, and which suggested changes are on or resized.
+alter table public.goals add column if not exists extra jsonb not null default '{}'::jsonb;
+
 -- ---------- updated_at ----------
 
 create or replace function public.touch_updated_at() returns trigger
