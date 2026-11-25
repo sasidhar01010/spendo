@@ -12,6 +12,10 @@ Track every rupee you spend, on your phone and laptop. Sign in with Google and y
 - **Budgets:** a monthly limit per category, with alerts at 80% and 100%.
 - **Review, by week:** each week's everyday spending against your own usual week (up to 8 earlier weeks; rent, bills, health and monthly subscriptions left out). Whether last week's suggestion worked, what went up and why, what went well, day by day, unusual payments, new payees, an 8-week trend, what the difference means for your nearest goal, and one concrete suggestion.
 - **Review, by month:** a month-end forecast (spent so far, expected everyday spending by weekday, and regular bills not yet paid, with a likely range), your patterns (weekday against weekend, after payday, priciest day) and small frequent payments added up per year.
+- **Safe to spend today:** one number on Home that already sets aside goal savings and regular bills still to come, with the working shown.
+- **Was it worth it?** Rate bigger purchases a few days later. The Review shows where regretted money goes, and Goals suggests cutting those first.
+- **Price in work time:** amounts shown as working time (from your average income) and as days of saving for your nearest goal.
+- **Spendo Wrapped:** a monthly or yearly recap in swipeable cards, with a hide-amounts option and save-as-image.
 - **Goals planner:** add what you're saving for, the cost and a date. Spendo works out your real average month, the monthly amount each goal needs, and whether it fits. If it doesn't, it suggests specific changes from your own habits; you switch each one on or off and resize it, then turn the plan into budgets. Also: a what-if slider for the date, savings history, and whether you're ahead of or behind schedule. All on-device arithmetic, no AI.
 - **Accounts, categories and income.**
 - **CSV import and export, plus a full JSON backup.**

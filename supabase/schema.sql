@@ -132,6 +132,10 @@ create table if not exists public.goals (
 
 -- Plan details per goal: savings history, start date, and which suggested changes are on or resized.
 alter table public.goals add column if not exists extra jsonb not null default '{}'::jsonb;
+-- Worth-it rating per entry: 1 = worth it, -1 = not worth it, 0 = skipped.
+alter table public.transactions add column if not exists rating smallint;
+-- Per-user settings such as working days a month.
+alter table public.profiles add column if not exists extra jsonb not null default '{}'::jsonb;
 
 -- ---------- updated_at ----------
 
