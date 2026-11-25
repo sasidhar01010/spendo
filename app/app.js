@@ -612,7 +612,12 @@ function review(ws,deep=true){
   // one suggestion
   if(ok){const ups=R.moves.filter(m=>m.d>0),dk=W.del.length,du=Math.round(avg(b=>b.del.length)),dt=dk?sum(W.del)/dk:0;
     const goal=goals().filter(g=>(g.saved||0)<g.target).sort((x,y)=>x.date<y.date?-1:1)[0];
-    if(prog){const room=U7-W.total;
+    // the month's limit wins: never suggest more per day than Home's "safe to spend"
+    const Z=isCur&&left>0?safe(safeSpend)||null:null,perUsual=Math.max(0,(U7-W.total)/Math.max(1,left));
+    if(prog&&Z&&Z.perDay<perUsual*.95){const lim=Z.basis==='budget'?'your monthly budget':"what's left after your goals",mo=Z.before+Z.today;
+      R.tip=Z.perDay>=Math.max(1000,U7/7*.15)?{kind:'pace',t:`Stay near ${money(floorTo(Z.perDay,1000),{round:1})} a day for the next ${left} day${left>1?'s':''}`,w:`Your usual week would allow about ${money(floorTo(perUsual,1000),{round:1})} a day, but ${lim} only has room for ${money(floorTo(Z.perDay,1000),{round:1})}. You've spent ${money(mo,{round:1})} of ${money(Z.cap,{round:1})} this month.`}
+        :{kind:'pace',t:`Keep the next ${left} day${left>1?'s':''} to essentials`,w:`This week is on your usual pace, but ${lim} is used up: ${money(mo,{round:1})} of ${money(Z.cap,{round:1})} this month.`}}
+    else if(prog){const room=U7-W.total;
       R.tip=room>0?{kind:'pace',t:`Stay near ${money(floorTo(room/left,1000),{round:1})} a day for the next ${left} day${left>1?'s':''}`,w:`That lands this week on your usual ${money(U7,{round:1})}. You've spent ${money(W.total,{round:1})} in ${n} day${n>1?'s':''}.`}
         :{kind:'pace',t:`Keep the next ${left} day${left>1?'s':''} to essentials`,w:`You're at ${money(W.total,{round:1})}, already past your usual full week of ${money(U7,{round:1})}.`}}
     else if(pct<=-.1&&U-W.total>=20000)R.tip=goal?{kind:'keep',t:`Move ${money(floorTo(U-W.total,10000),{round:1})} into ${goal.name}`,w:`That's what you spent below your usual week. Setting it aside now makes the saving real.`,goal:goal.id,amt:floorTo(U-W.total,10000)}
